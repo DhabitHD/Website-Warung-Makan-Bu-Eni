@@ -1,0 +1,156 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  ─────────────────────────────────────────────────────────────
+  Design tokens — Warung Makan Bu Eni
+  Sumber warna: referensi "Tampilan web.png"
+  Standar lengkap: docs/STANDARDS.md
+  ─────────────────────────────────────────────────────────────
+  Tokens shadcn/ui (background, primary, border, ...) memakai
+  variabel :root di bawah agar komponen shadcn ikut palet kita.
+  ─────────────────────────────────────────────────────────────
+*/
+@theme {
+  /* Warga merek */
+  --color-brand: #2f4a3b;
+  --color-brand-strong: #243a2e;
+  --color-accent: #b4552f;
+  --color-accent-strong: #9b4827;
+
+  /* Warna tambahan */
+  --color-surface: #fffdf9;
+  --color-ink: #22201b;
+  --color-placeholder: #ece7db;
+
+  /* Tipografi */
+  --font-display: 'Fraunces', ui-serif, Georgia, serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* Radius & bayangan */
+  --radius-card: 0.75rem;
+  --shadow-card: 0 1px 2px rgb(34 32 27 / 0.04), 0 8px 24px rgb(34 32 27 / 0.06);
+}
+
+/* Palet shadcn/ui — disamakan dengan palet warung */
+:root {
+  --background: #f5f0e6; /* krem latar */
+  --foreground: #22201b; /* teks utama */
+  --card: #fffdf9; /* kartu putih hangat */
+  --card-foreground: #22201b;
+  --popover: #fffdf9;
+  --popover-foreground: #22201b;
+  --primary: #2f4a3b; /* hijau tua merek */
+  --primary-foreground: #fffdf9;
+  --secondary: #ece7db;
+  --secondary-foreground: #22201b;
+  --muted: #ece7db; /* latar lembut */
+  --muted-foreground: #8b857a; /* teks redup */
+  --accent: #b4552f; /* rust/terracotta */
+  --accent-foreground: #fffdf9;
+  --destructive: #b3261e;
+  --destructive-foreground: #fffdf9;
+  --border: #e4ded1;
+  --input: #e4ded1;
+  --ring: #2f4a3b;
+  --chart-1: #2f4a3b;
+  --chart-2: #b4552f;
+  --chart-3: #8b857a;
+  --chart-4: #ece7db;
+  --chart-5: #243a2e;
+  --radius: 0.75rem;
+  --sidebar: #fffdf9;
+  --sidebar-foreground: #22201b;
+  --sidebar-primary: #2f4a3b;
+  --sidebar-primary-foreground: #fffdf9;
+  --sidebar-accent: #ece7db;
+  --sidebar-accent-foreground: #22201b;
+  --sidebar-border: #e4ded1;
+  --sidebar-ring: #2f4a3b;
+}
+
+/* Variabel tema shadcn — arahkan ke token milik kita */
+@theme inline {
+  --font-heading: var(--font-display);
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+    @apply outline-ring/50;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+  }
+}
+
+@layer components {
+  /* Tombol utama — aksen rust (contoh: "Lihat keranjang →") */
+  .btn-accent {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-surface transition-colors hover:bg-accent-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  /* Tombol sekunder — outline (contoh: "+ Tambah") */
+  .btn-outline {
+    @apply inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-4 py-3 text-sm font-medium text-ink transition-colors hover:border-brand hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:pointer-events-none disabled:opacity-50;
+  }
+}
