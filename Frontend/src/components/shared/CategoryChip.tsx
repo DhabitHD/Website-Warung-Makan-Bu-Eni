@@ -21,7 +21,7 @@ export function CategoryChip({ kategori, aktif, onSelect }: CategoryChipProps) {
       onClick={() => onSelect(kategori)}
       aria-pressed={aktif}
       className={cn(
-        'h-10 rounded-lg px-4 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
+        'h-11 rounded-lg px-4 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
         aktif ? 'bg-brand text-surface' : 'text-ink hover:bg-secondary',
       )}
     >

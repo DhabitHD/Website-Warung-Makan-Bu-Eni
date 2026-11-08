@@ -8,7 +8,7 @@ interface SiteHeaderProps {
 /** Header identitas warung. */
 export function SiteHeader({ children }: SiteHeaderProps) {
   return (
-    <header className="border-b border-border/70 bg-background">
+    <header className="sticky top-0 z-40 border-b border-border/70 bg-background">
       <Container className="flex h-16 items-center justify-between gap-4">
         <a href="/" className="flex items-baseline gap-2">
           <span className="font-display text-lg font-semibold text-brand">Warung Makan</span>

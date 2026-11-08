@@ -1,4 +1,5 @@
 import { SearchX } from 'lucide-react'
+import { CartBar } from '@/components/shared/CartBar'
 import { CategoryChip } from '@/components/shared/CategoryChip'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { OrderSummaryCard } from '@/components/shared/OrderSummaryCard'
@@ -30,10 +31,10 @@ export function MenuPage() {
   return (
     <PageShell>
       {/* ── Hero ─────────────────────────────────────────── */}
-      <section className="pt-10 pb-8 sm:pt-14">
+      <section className="pt-8 pb-8 sm:pt-14">
         <Container className="grid items-start gap-8 lg:grid-cols-[1fr_auto]">
           <div className="max-w-xl">
-            <h1 className="font-display text-5xl leading-[1.05] font-medium text-ink sm:text-6xl">
+            <h1 className="font-display text-4xl leading-[1.05] font-medium text-ink sm:text-6xl">
               Lauk lengkap,
               <br />
               <em className="font-normal text-accent">makan tenang.</em>
@@ -50,33 +51,40 @@ export function MenuPage() {
       </section>
 
       {/* ── Daftar menu: konten + sidebar ────────────────── */}
-      <Container className="pb-16">
+      <Container className="pb-24 lg:pb-16">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="min-w-0">
-            {/* Toolbar: judul + filter + pencarian */}
-            <div className="flex flex-col gap-4 border-t border-border pt-8 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="flex items-baseline gap-2.5">
-                <span className="font-display text-2xl font-medium text-ink">Daftar menu</span>
-                <span className="text-sm text-muted-foreground">{hasil.length} pilihan</span>
-              </h2>
+            {/* Toolbar: judul + pencarian */}
+            <div className="border-t border-border pt-8">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <h2 className="flex items-baseline gap-2.5">
+                  <span className="font-display text-2xl font-medium text-ink">Daftar menu</span>
+                  <span className="text-sm text-muted-foreground">{hasil.length} pilihan</span>
+                </h2>
 
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-1" role="group" aria-label="Filter kategori">
-                  {FILTERS.map((filter) => (
-                    <CategoryChip
-                      key={filter}
-                      kategori={filter}
-                      aktif={kategori === filter}
-                      onSelect={setKategori}
-                    />
-                  ))}
-                </div>
                 <SearchInput
                   value={pencarian}
                   onChange={setPencarian}
-                  className="w-full sm:w-56"
+                  className="sm:w-56"
                 />
               </div>
+            </div>
+
+            {/* Filter kategori — bilah melekat di bawah header di layar kecil,
+                sehingga bisa ganti kategori satu sent kapan pun. */}
+            <div
+              role="group"
+              aria-label="Filter kategori"
+              className="sticky top-16 z-30 -mx-4 mt-4 flex items-center gap-1 bg-background px-4 pb-2 lg:mx-0 lg:static lg:bg-transparent lg:px-0 lg:pb-0"
+            >
+              {FILTERS.map((filter) => (
+                <CategoryChip
+                  key={filter}
+                  kategori={filter}
+                  aktif={kategori === filter}
+                  onSelect={setKategori}
+                />
+              ))}
             </div>
 
             {/* Section per kategori */}
@@ -115,6 +123,7 @@ export function MenuPage() {
           </div>
         </div>
       </Container>
+      <CartBar />
     </PageShell>
   )
 }
