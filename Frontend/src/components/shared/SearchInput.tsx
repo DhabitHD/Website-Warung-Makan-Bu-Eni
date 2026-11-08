@@ -14,7 +14,7 @@ export function SearchInput({ value, onChange, placeholder = 'Cari menu...', cla
     <div className={cn('relative w-full', className)}>
       <Search
         aria-hidden="true"
-        className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted"
+        className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
       />
       <input
         type="search"
@@ -22,7 +22,7 @@ export function SearchInput({ value, onChange, placeholder = 'Cari menu...', cla
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         aria-label={placeholder}
-        className="h-11 w-full rounded-lg border border-border bg-surface pr-3 pl-9 text-sm text-ink placeholder:text-muted focus:border-brand focus:ring-2 focus:ring-brand/20 focus:outline-none"
+        className="h-11 w-full rounded-lg border border-border bg-surface pr-3 pl-9 text-sm text-ink placeholder:text-muted-foreground focus:border-brand focus:ring-2 focus:ring-brand/20 focus:outline-none"
       />
     </div>
   )

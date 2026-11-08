@@ -37,7 +37,7 @@ export function OrderSummaryCard({ items, className }: OrderSummaryCardProps) {
 
       <div className="mt-4 border-t border-border pt-4">
         {kosong ? (
-          <p className="py-6 text-center text-sm text-muted">
+          <p className="py-6 text-center text-sm text-muted-foreground">
             Belum ada pilihan. Tambah lauk atau sayur dulu, ya.
           </p>
         ) : (
@@ -46,7 +46,7 @@ export function OrderSummaryCard({ items, className }: OrderSummaryCardProps) {
               <li key={item.itemId} className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-ink">{item.nama}</p>
-                  <p className="mt-1 text-xs text-muted">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     {item.jumlah} × Rp{formatRupiah(item.harga)}
                   </p>
                 </div>
@@ -60,7 +60,7 @@ export function OrderSummaryCard({ items, className }: OrderSummaryCardProps) {
       </div>
 
       <div className="mt-5 flex items-end justify-between gap-3 border-t border-border pt-4">
-        <span className="text-sm text-muted">Total sementara</span>
+        <span className="text-sm text-muted-foreground">Total sementara</span>
         <span className="font-display text-3xl font-medium text-ink">
           Rp{formatRupiah(totalHarga)}
         </span>
@@ -70,7 +70,7 @@ export function OrderSummaryCard({ items, className }: OrderSummaryCardProps) {
         Lihat keranjang
         <ArrowRight className="size-4" aria-hidden="true" />
       </Link>
-      <p className="mt-3 text-center text-xs text-muted">
+      <p className="mt-3 text-center text-xs text-muted-foreground">
         Jumlah dan total bisa kamu periksa lagi sebelum checkout.
       </p>
     </aside>

@@ -38,7 +38,7 @@ export function MenuPage() {
               <br />
               <em className="font-normal text-accent">makan tenang.</em>
             </h1>
-            <p className="mt-5 max-w-md text-[0.95rem] leading-relaxed text-muted">
+            <p className="mt-5 max-w-md text-[0.95rem] leading-relaxed text-muted-foreground">
               Pilih lauk dan sayur favoritmu. Tambahkan ke pesanan, lalu lanjutkan ke checkout saat
               pilihanmu sudah lengkap.
             </p>
@@ -57,7 +57,7 @@ export function MenuPage() {
             <div className="flex flex-col gap-4 border-t border-border pt-8 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="flex items-baseline gap-2.5">
                 <span className="font-display text-2xl font-medium text-ink">Daftar menu</span>
-                <span className="text-sm text-muted">{hasil.length} pilihan</span>
+                <span className="text-sm text-muted-foreground">{hasil.length} pilihan</span>
               </h2>
 
               <div className="flex flex-wrap items-center gap-3">
@@ -101,7 +101,7 @@ export function MenuPage() {
             ) : (
               <div className="mt-10">
                 <EmptyState
-                  ikon={<SearchX className="size-7 text-muted" aria-hidden="true" />}
+                  ikon={<SearchX className="size-7 text-muted-foreground" aria-hidden="true" />}
                   judul="Menu tidak ditemukan"
                   deskripsi={`Tidak ada menu yang cocok dengan pencarian "${pencarian}". Coba kata kunci lain.`}
                 />

@@ -18,7 +18,7 @@ export function SectionHeading({ nomor, judul, label, className }: SectionHeadin
         <span className="font-display text-sm font-semibold text-accent">{nomor} /</span>
         <span className="font-display text-3xl font-medium text-ink sm:text-4xl">{judul}</span>
       </h2>
-      {label && <span className="text-sm text-muted">{label}</span>}
+      {label && <span className="text-sm text-muted-foreground">{label}</span>}
     </div>
   )
 }

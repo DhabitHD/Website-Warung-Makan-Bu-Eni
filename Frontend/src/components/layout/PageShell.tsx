@@ -12,7 +12,7 @@ export function PageShell({ children }: PageShellProps) {
       <SiteHeader />
       <main className="flex-1">{children}</main>
       <footer className="border-t border-border/70 py-6">
-        <p className="text-center text-xs text-muted">
+        <p className="text-center text-xs text-muted-foreground">
           © {new Date().getFullYear()} Warung Makan Bu Eni · Pesan cukup dengan scan QR
         </p>
       </footer>

@@ -15,7 +15,7 @@
   ─────────────────────────────────────────────────────────────
 */
 @theme {
-  /* Warga merek */
+  /* Warna merek */
   --color-brand: #2f4a3b;
   --color-brand-strong: #243a2e;
   --color-accent: #b4552f;
@@ -48,7 +48,7 @@
   --secondary: #ece7db;
   --secondary-foreground: #22201b;
   --muted: #ece7db; /* latar lembut */
-  --muted-foreground: #8b857a; /* teks redup */
+  --muted-foreground: #74716a; /* teks redup — disamakan dengan referensi daftar-harga */
   --accent: #b4552f; /* rust/terracotta */
   --accent-foreground: #fffdf9;
   --destructive: #b3261e;
