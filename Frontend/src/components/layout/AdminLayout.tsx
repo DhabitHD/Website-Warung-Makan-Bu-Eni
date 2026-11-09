@@ -49,32 +49,45 @@ function NavList({ onPilih }: { onPilih?: () => void }) {
 
 /** Identitas merek di kepala sidebar/bilah atas. */
 function BrandAdmin({ compact = false }: { compact?: boolean }) {
+  const badgeAdmin = (
+    <span
+      className={cn(
+        'shrink-0 rounded-full bg-surface/15 font-semibold tracking-widest text-surface/80 uppercase',
+        compact ? 'px-1.5 py-0.5 text-[0.6rem]' : 'self-start px-2 py-0.5 text-[0.65rem]',
+      )}
+    >
+      Admin
+    </span>
+  )
+
+  // Mobile: satu baris ringkas. Sidebar desktop: merek satu baris di atas,
+  // badge di bawah — muat di lebar isi 200px (w-60 − padding) tanpa meluber.
   return (
-    <div className={cn('flex items-baseline whitespace-nowrap', compact ? 'gap-1.5' : 'gap-2')}>
-      <span
-        className={cn(
-          'font-display font-semibold text-surface',
-          compact ? 'text-sm sm:text-base' : 'text-lg',
-        )}
-      >
-        Warung Makan
-      </span>
-      <span
-        className={cn(
-          'font-display font-medium text-accent italic',
-          compact ? 'text-sm sm:text-base' : 'text-lg',
-        )}
-      >
-        Bu Eni
-      </span>
-      <span
-        className={cn(
-          'shrink-0 rounded-full bg-surface/15 font-semibold tracking-widest text-surface/80 uppercase',
-          compact ? 'px-1.5 py-0.5 text-[0.6rem]' : 'px-2 py-0.5 text-[0.65rem]',
-        )}
-      >
-        Admin
-      </span>
+    <div
+      className={cn(
+        'whitespace-nowrap',
+        compact ? 'flex items-baseline gap-1.5' : 'flex flex-col gap-1.5',
+      )}
+    >
+      <div className={cn('flex items-baseline', compact ? 'gap-1.5' : 'gap-2')}>
+        <span
+          className={cn(
+            'font-display font-semibold text-surface',
+            compact ? 'text-sm sm:text-base' : 'text-lg',
+          )}
+        >
+          Warung Makan
+        </span>
+        <span
+          className={cn(
+            'font-display font-medium text-accent italic',
+            compact ? 'text-sm sm:text-base' : 'text-lg',
+          )}
+        >
+          Bu Eni
+        </span>
+      </div>
+      {badgeAdmin}
     </div>
   )
 }
