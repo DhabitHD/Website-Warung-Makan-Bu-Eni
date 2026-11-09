@@ -1,4 +1,5 @@
 import { ImageOff, Plus } from 'lucide-react'
+import { apakahTersedia } from '@/features/menu/store/menu-store'
 import { formatRupiah } from '@/lib/currency'
 import { cn } from '@/lib/utils'
 import type { MenuItem } from '@/types/menu'
@@ -11,10 +12,13 @@ interface MenuItemCardProps {
 
 /** Card makanan: foto, nama, harga, dan tombol "+ Tambah". */
 export function MenuItemCard({ menu, onTambah, className }: MenuItemCardProps) {
+  const tersedia = apakahTersedia(menu)
+
   return (
     <article
       className={cn(
         'flex flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-card',
+        !tersedia && 'opacity-70',
         className,
       )}
     >
@@ -33,7 +37,14 @@ export function MenuItemCard({ menu, onTambah, className }: MenuItemCardProps) {
 
       <div className="flex flex-1 flex-col gap-4 p-4">
         <div>
-          <h3 className="text-base font-semibold text-ink">{menu.nama}</h3>
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="text-base font-semibold text-ink">{menu.nama}</h3>
+            {!tersedia && (
+              <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[0.7rem] font-semibold tracking-wide text-muted-foreground uppercase">
+                Habis
+              </span>
+            )}
+          </div>
           <p className="mt-1 text-sm font-medium text-ink">
             <span className="text-ink/75">Rp</span>
             {formatRupiah(menu.harga)}
@@ -42,11 +53,18 @@ export function MenuItemCard({ menu, onTambah, className }: MenuItemCardProps) {
         <button
           type="button"
           onClick={() => onTambah(menu)}
+          disabled={!tersedia}
           className="btn-outline mt-auto"
-          aria-label={`Tambah ${menu.nama} ke pesanan`}
+          aria-label={tersedia ? `Tambah ${menu.nama} ke pesanan` : `${menu.nama} sedang habis`}
         >
-          <Plus className="size-4" aria-hidden="true" />
-          Tambah
+          {tersedia ? (
+            <>
+              <Plus className="size-4" aria-hidden="true" />
+              Tambah
+            </>
+          ) : (
+            'Habis'
+          )}
         </button>
       </div>
     </article>

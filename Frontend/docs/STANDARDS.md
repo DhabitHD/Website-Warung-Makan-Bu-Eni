@@ -12,13 +12,15 @@ src/
 ├── assets/                  # gambar, font
 ├── components/
 │   ├── ui/                  # primitif shadcn/ui (Button, Input, ...) — MILIK LEAD
-│   ├── layout/              # PageShell, SiteHeader, Container — MILIK LEAD
+│   ├── layout/              # PageShell, SiteHeader, AdminLayout — MILIK LEAD
 │   └── shared/              # komponen lintas fitur — MILIK LEAD
 ├── features/
-│   ├── menu/                # components/ hooks/ services/
+│   ├── menu/                # components/ hooks/ services/ store/
 │   ├── cart/                # components/ store/
-│   └── checkout/            # components/ schemas/ services/
+│   ├── checkout/            # components/ schemas/ services/
+│   └── auth/                # schemas/ services/ store/ guards/ (Fase 2) — MILIK LEAD
 ├── pages/                   # satu file = satu halaman route
+│   └── admin/               # halaman dashboard admin (Fase 2)
 ├── routes/                  # definisi React Router
 ├── services/                # API client global (Tahap 4)
 ├── types/                   # kontrak tipe data BERSAMA
@@ -28,6 +30,8 @@ src/
 **Aturan kepemilikan:**
 - Arya hanya mengedit `features/cart/`, `features/checkout/`, `pages/CartPage.tsx`,
   `pages/CheckoutPage.tsx`, `pages/OrderSuccessPage.tsx`.
+- Fase 2: Arya mengisi `pages/admin/AdminOverviewPage.tsx`, `AdminOrdersPage.tsx`,
+  `AdminOrderDetailPage.tsx`, `AdminHistoryPage.tsx` (sudah ada kerangka/rute).
 - Perubahan di `components/`, `types/`, `routes/`, `App.tsx` → **koordinasikan dengan Lead dulu**.
 
 ---
@@ -59,7 +63,7 @@ Token ada di `src/index.css` (`@theme` + variabel `:root`). **Jangan pakai warna
 | `background` | `#f5f0e6` | latar halaman (krem) |
 | `surface` / `card` | `#fffdf9` | kartu, panel putih hangat |
 | `ink` / `foreground` | `#22201b` | teks utama |
-| `muted` | `#8b857a` | teks sekunder/redup |
+| `muted` | `#74716a` | teks sekunder/redup |
 | `border` | `#e4ded1` | garis pemisah |
 | `brand` | `#2f4a3b` | hijau tua — chip aktif, judul merek |
 | `accent` | `#b4552f` | rust — CTA utama, nomor section, italic hero |
@@ -76,14 +80,20 @@ Token ada di `src/index.css` (`@theme` + variabel `:root`). **Jangan pakai warna
 | Komponen | Lokasi | Fungsi |
 |---|---|---|
 | `Button` | `components/ui/button.tsx` | varian: `default`, `accent` (rust), `outline`, `ghost` |
+| `Input` `Label` `Textarea` | `components/ui/` | primitif form admin — tinggi sentuh 44px |
+| `Badge` | `components/ui/badge.tsx` | varian: `brand`, `accent`, `muted`, `outline` |
+| `Table` (sebagian) | `components/ui/table.tsx` | `Table, TableHeader, TableBody, TableRow, TableHead, TableCell` |
 | `.btn-accent` | kelas global | tombol rust penuh (contoh: Lihat keranjang) |
 | `.btn-outline` | kelas global | tombol outline lebar penuh (contoh: + Tambah) |
 | `SectionHeading` | `components/shared/` | judul "01 / Lauk" + label jumlah |
 | `CategoryChip` | `components/shared/` | filter Semua/Lauk/Sayur |
 | `SearchInput` | `components/shared/` | input pencarian berikon |
 | `StatCard` | `components/shared/` | kartu statistik hijau |
-| `OrderSummaryCard` | `components/shared/` | panel "Pesananmu" |
+| `OrderSummaryCard` | `components/shared/` | panel "Pesananmu" (desktop) |
+| `CartBar` | `components/shared/` | bar bawah keranjang (mobile, saat keranjang terisi) |
 | `EmptyState` | `components/shared/` | tampilan data kosong |
+| `AdminPlaceholder` | `components/shared/` | penanda halaman admin menunggu Arya |
+| `AdminLayout` | `components/layout/` | kerangka dashboard: sidebar hijau + drawer mobile |
 
 ### Radius & bayangan
 
@@ -108,6 +118,7 @@ interface MenuItem {
   kategori: KategoriMenu
   foto: string         // nama file, contoh: "tempegarit.jpg"
   deskripsi?: string
+  tersedia?: boolean   // Fase 2: false = habis; undefined = tersedia
 }
 ```
 
@@ -140,6 +151,25 @@ const kosongkan = useCartStore((s) => s.kosongkan)
 
 Selector total sudah tersedia: `hitungTotalJumlah(items)`, `hitungTotalHarga(items)`.
 
+**Store menu (Fase 2)** — `src/features/menu/store/menu-store.ts`, sumber data tunggal
+halaman pelanggan & admin:
+
+```ts
+const items = useMenuStore((s) => s.items)
+const simpan = useMenuStore((s) => s.simpan)          // tambah/ubah (berdasar id)
+const hapus = useMenuStore((s) => s.hapus)            // hapus berdasar id
+const toggleKetersediaan = useMenuStore((s) => s.toggleKetersediaan)
+apakahTersedia(menu)                                  // helper: false = habis
+```
+
+**Sesi admin (Fase 2)** — `src/features/auth/store/auth-store.ts` (persist localStorage):
+
+```ts
+const admin = useAuthStore((s) => s.admin)   // null = belum login
+const masuk = useAuthStore((s) => s.masuk)   // setelah loginAdmin() berhasil
+const keluar = useAuthStore((s) => s.keluar)
+```
+
 ---
 
 ## 6. Aturan kode
@@ -163,13 +193,14 @@ Selector total sudah tersedia: `hitungTotalJumlah(items)`, `hitungTotalHarga(ite
 ```text
 main
   └── develop
-        ├── feature/project-setup   (Dhabit)
-        ├── feature/design-system   (Dhabit)
-        ├── feature/menu-page       (Dhabit)
-        ├── feature/menu-filter     (Dhabit)
-        ├── feature/cart            (Arya)
-        ├── feature/checkout        (Arya)
-        └── feature/api-integration (bersama)
+        ├── feature/project-setup      (Dhabit)
+        ├── feature/design-system      (Dhabit)
+        ├── feature/menu-page          (Dhabit)
+        ├── feature/menu-filter        (Dhabit)
+        ├── feature/admin-dashboard    (Dhabit)
+        ├── feature/cart               (Arya)
+        ├── feature/checkout           (Arya)
+        └── feature/api-integration    (bersama)
 ```
 
 1. Tidak boleh push langsung ke `main`.
@@ -189,5 +220,15 @@ main
 | `/cart` | `CartPage` | Arya |
 | `/checkout` | `CheckoutPage` | Arya |
 | `/order-success` | `OrderSuccessPage` | Arya |
+| `/admin/login` | `AdminLoginPage` | Lead |
+| `/admin` | `AdminOverviewPage` | Arya |
+| `/admin/menu` | `AdminMenuPage` (CRUD) | Lead |
+| `/admin/menu/baru` | `AdminMenuFormPage` (tambah) | Lead |
+| `/admin/menu/:id/edit` | `AdminMenuFormPage` (ubah) | Lead |
+| `/admin/pesanan` | `AdminOrdersPage` | Arya |
+| `/admin/pesanan/:id` | `AdminOrderDetailPage` | Arya |
+| `/admin/riwayat` | `AdminHistoryPage` | Arya |
 
 Nomor meja dibaca dari query: `/menu?table=A01`.
+Rute `/admin/*` dijaga `RequireAuth` — sesi login mock disimpan di localStorage
+(`warung.sesiAdmin`), akun demo: `admin` / `eni123`.
