@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { History, LayoutDashboard, LogOut, Menu as MenuIcon, Receipt, UtensilsCrossed, X } from 'lucide-react'
 import { useAuthStore } from '@/features/auth/store/auth-store'
@@ -50,14 +50,29 @@ function NavList({ onPilih }: { onPilih?: () => void }) {
 /** Identitas merek di kepala sidebar/bilah atas. */
 function BrandAdmin({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="flex items-baseline gap-2">
-      <span className={cn('font-display font-semibold text-surface', compact ? 'text-base' : 'text-lg')}>
+    <div className={cn('flex items-baseline whitespace-nowrap', compact ? 'gap-1.5' : 'gap-2')}>
+      <span
+        className={cn(
+          'font-display font-semibold text-surface',
+          compact ? 'text-sm sm:text-base' : 'text-lg',
+        )}
+      >
         Warung Makan
       </span>
-      <span className={cn('font-display font-medium text-accent italic', compact ? 'text-base' : 'text-lg')}>
+      <span
+        className={cn(
+          'font-display font-medium text-accent italic',
+          compact ? 'text-sm sm:text-base' : 'text-lg',
+        )}
+      >
         Bu Eni
       </span>
-      <span className="rounded-full bg-surface/15 px-2 py-0.5 text-[0.65rem] font-semibold tracking-widest text-surface/80 uppercase">
+      <span
+        className={cn(
+          'shrink-0 rounded-full bg-surface/15 font-semibold tracking-widest text-surface/80 uppercase',
+          compact ? 'px-1.5 py-0.5 text-[0.6rem]' : 'px-2 py-0.5 text-[0.65rem]',
+        )}
+      >
         Admin
       </span>
     </div>
@@ -80,10 +95,22 @@ export function AdminLayout() {
     navigate('/admin/login', { replace: true })
   }
 
+  // Kunci scroll body selama drawer terbuka (panel menempel penuh di layar).
+  useEffect(() => {
+    if (!drawerTerbuka) {
+      return
+    }
+    const overflowSebelumnya = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = overflowSebelumnya
+    }
+  }, [drawerTerbuka])
+
   return (
     <div className="min-h-screen bg-background">
       {/* ── Bilah atas (mobile) ─────────────────────────── */}
-      <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 bg-brand px-4 lg:hidden">
+      <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-2 bg-brand px-4 lg:hidden">
         <BrandAdmin compact />
         <button
           type="button"
@@ -91,7 +118,7 @@ export function AdminLayout() {
           aria-expanded={drawerTerbuka}
           aria-controls="nav-admin-mobile"
           aria-label={drawerTerbuka ? 'Tutup menu navigasi' : 'Buka menu navigasi'}
-          className="flex size-10 items-center justify-center rounded-lg text-surface hover:bg-surface/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-surface"
+          className="flex size-10 shrink-0 items-center justify-center rounded-lg text-surface hover:bg-surface/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-surface"
         >
           {drawerTerbuka ? <X className="size-5" aria-hidden="true" /> : <MenuIcon className="size-5" aria-hidden="true" />}
         </button>
@@ -101,7 +128,7 @@ export function AdminLayout() {
         <nav
           id="nav-admin-mobile"
           aria-label="Navigasi admin"
-          className="border-t border-surface/15 bg-brand px-3 py-3 lg:hidden"
+          className="fixed inset-x-0 top-14 z-40 max-h-[calc(100dvh-3.5rem)] overflow-y-auto border-t border-surface/15 bg-brand px-3 py-3 lg:hidden"
         >
           <NavList onPilih={() => setDrawerTerbuka(false)} />
           <button
