@@ -1,6 +1,11 @@
 import { create } from 'zustand'
 import type { CartItem, CartState } from '@/types/cart'
 import type { MenuItem } from '@/types/menu'
+import { simpanNomorMejaDariUrl } from '../lib/meja'
+
+// MenuPage (halaman pendaratan QR) mengimpor store ini, sehingga ?table=A01
+// tersimpan sebelum pelanggan pindah ke /cart atau /checkout.
+simpanNomorMejaDariUrl()
 
 /**
  * Store keranjang — implementasi awal dari Frontend Lead (Tahap 2).
