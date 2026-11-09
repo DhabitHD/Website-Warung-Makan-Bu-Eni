@@ -11,7 +11,7 @@ import { PageShell } from '@/components/layout/PageShell'
 import { MenuItemCard } from '@/features/menu/components/MenuItemCard'
 import { useMenuFilter } from '@/features/menu/hooks/useMenuFilter'
 import { useCartStore } from '@/features/cart/store/cart-store'
-import { MOCK_MENU } from '@/features/menu/services/menu.mock'
+import { useMenuStore } from '@/features/menu/store/menu-store'
 import type { FilterKategori, MenuItem } from '@/types/menu'
 
 const FILTERS: FilterKategori[] = ['semua', 'lauk', 'sayur']
@@ -22,9 +22,10 @@ export function MenuPage() {
 
   const items = useCartStore((state) => state.items)
   const tambah = useCartStore((state) => state.tambah)
+  const menuItems = useMenuStore((state) => state.items)
 
-  const jumlahLauk = MOCK_MENU.filter((menu) => menu.kategori === 'lauk').length
-  const jumlahSayur = MOCK_MENU.filter((menu) => menu.kategori === 'sayur').length
+  const jumlahLauk = menuItems.filter((menu) => menu.kategori === 'lauk').length
+  const jumlahSayur = menuItems.filter((menu) => menu.kategori === 'sayur').length
 
   const handleTambah = (menu: MenuItem) => tambah(menu)
 

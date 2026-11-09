@@ -67,4 +67,13 @@ src/
 | 4 | Integrasi API | ⏳ menyusul |
 | 5 | Testing & deployment | ⏳ menyusul |
 
-> Data menu saat ini masih **mock** (`src/features/menu/services/menu.mock.ts`) dan akan diganti dengan respons API pada Tahap 4.
+### Fase 2 — Admin Dashboard
+
+| Bagian | Isi | Status |
+|---|---|---|
+| Dhabit (Lead) | Login admin, layout & routing `/admin/*`, CRUD menu + harga + ketersediaan | ✅ |
+| Arya | Dashboard pesanan, detail & status pesanan, riwayat, ringkasan transaksi | ⏳ (kerangka rute siap) |
+
+Buka `http://localhost:5173/admin/login` — akun demo: **admin** / **eni123**.
+
+> Data menu saat ini masih **mock** (`src/features/menu/services/menu.mock.ts`) dan akan diganti dengan respons API pada Tahap 4. Login admin juga masih mock — auth asli menyusul bersama backend.

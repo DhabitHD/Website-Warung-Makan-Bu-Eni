@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { MOCK_MENU } from '../services/menu.mock'
+import { useMenuStore } from '../store/menu-store'
 import type { FilterKategori, MenuItem } from '@/types/menu'
 
 const LABEL_KATEGORI: Record<FilterKategori, string> = {
@@ -22,20 +22,21 @@ export interface GroupedMenu {
 
 /**
  * State & logika filter menu: pencarian (nama) + filter kategori.
- * Data masih mock; Tahap 4 mengganti sumber datanya dengan API.
+ * Sumber data: `useMenuStore` (mock); Tahap 4 menggantinya dengan API.
  */
 export function useMenuFilter(): GroupedMenu {
   const [pencarian, setPencarian] = useState('')
   const [kategori, setKategori] = useState<FilterKategori>('semua')
+  const items = useMenuStore((state) => state.items)
 
   const hasil = useMemo(() => {
     const kata = pencarian.trim().toLowerCase()
-    return MOCK_MENU.filter((menu) => {
+    return items.filter((menu) => {
       const cocokKategori = kategori === 'semua' || menu.kategori === kategori
       const cocokPencarian = kata === '' || menu.nama.toLowerCase().includes(kata)
       return cocokKategori && cocokPencarian
     })
-  }, [pencarian, kategori])
+  }, [pencarian, kategori, items])
 
   const grup = useMemo(() => {
     const urutan: Exclude<FilterKategori, 'semua'>[] = ['lauk', 'sayur']
@@ -57,6 +58,6 @@ export function useMenuFilter(): GroupedMenu {
     setPencarian,
     kategori,
     setKategori,
-    totalSemua: MOCK_MENU.length,
+    totalSemua: items.length,
   }
 }

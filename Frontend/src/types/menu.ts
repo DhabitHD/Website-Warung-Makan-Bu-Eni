@@ -17,6 +17,12 @@ export interface MenuItem {
   foto: string
   /** Deskripsi singkat (opsional). */
   deskripsi?: string
+  /**
+   * Ketersediaan menu (Fase 2 — admin). Opsional agar kontrak lama tetap sah:
+   * `undefined` atau `true` berarti tersedia, `false` berarti habis.
+   * Diatur lewat halaman admin Kelola Menu.
+   */
+  tersedia?: boolean
 }
 
 /** Daftar kategori untuk filter, 'semua' berarti tanpa filter. */
