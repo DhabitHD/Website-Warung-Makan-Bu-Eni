@@ -23,6 +23,8 @@
 | Kode | HTTP | Dipakai saat |
 |---|---|---|
 | `MASUKAN_TIDAK_SAH` | 400 | Zod menolak masukan |
+| `MENU_HABIS` | 400 | menu `tersedia = false` saat checkout / rekomendasi |
+| `HARGA_BERUBAH` | 409 | harga di PostgreSQL ≠ harga yang diharapkan frontend (lihat §2) |
 | `TIDAK_DITEMUKAN` | 404 | id tidak ada / rute salah |
 | `TANPA_HAK` | 401/403 | belum login / bukan pemilik (Tahap 2) |
 | `KONFLIK` | 409 | langkah ganda (mis. status sudah sama) |
@@ -50,7 +52,7 @@
   "nama": "Toni",                       // nama pelanggan (dari form checkout)
   "nomorMeja": "A01",
   "catatan": "tanpa sambal",            // opsional
-  "items": [ { "menuId": "lauk-01", "jumlah": 2 } ]
+  "items": [ { "menuId": "lauk-01", "jumlah": 2, "hargaDiharapkan": 7000 } ]
 }
 // 201 — respons
 {
@@ -68,9 +70,10 @@
 ```
 
 **Aturan:**
-- Jumlah `<= 0` atau id menu tidak ada → `400`. Menu `tersedia = false` → `400` dengan pesan "sedang habis".
+- Jumlah `<= 0` atau id menu tidak ada → `400`. Menu `tersedia = false` → `400 MENU_HABIS` dengan pesan "sedang habis".
+- **Pemberitahuan harga berubah (usulan — memenuhi skenario uji plan):** frontend boleh menyertakan `hargaDiharapkan` per item (salinan harga saat masuk keranjang). Bila berbeda dengan harga di PostgreSQL → `409 HARGA_BERUBAH`, isi respons memuat harga terbaru per item — frontend memberi tahu pembeli **sebelum** melanjutkan pesanan, lalu keranjang diperbarui.
 - Format `nomorMeja` divalidasi sama dengan frontend: `[A-Za-z0-9-]`, maksimal 10 karakter.
-- `items` hanya menerima `menuId` + `jumlah` — salinan nama/harga dari keranjang frontend **dibuang** (server memakai harga `menu`).
+- `items` hanya menerima `menuId` + `jumlah` (+ `hargaDiharapkan` opsional) — salinan nama/harga dari keranjang frontend **dibuang** (server memakai harga `menu`).
 - Field `totalHarga` bila frontend ikut mengirim **diabaikan** — total selalu dihitung server.
 - **Cegah penyimpanan ganda:** `idPermintaan` yang sama dikirim ulang (retry/refresh/tombol ditekan dua kali) mengembalikan pesanan lama (200), bukan membuat pesanan baru.
 
@@ -124,6 +127,10 @@
 }
 ```
 
+**Aturan (memenuhi skenario uji "periode kosong dan batas tanggal"):**
+- `dari` & `sampai` **wajib**, format `YYYY-MM-DD`, dan `dari <= sampai` — pelanggaran → `400 MASUKAN_TIDAK_SAH` dengan petunjuk perbaikan.
+- Periode valid tapi tidak ada transaksi → **angka nol** (200), bukan galat.
+
 ### `PATCH /pesanan/:id/pembayaran`
 
 ```jsonc
@@ -171,7 +178,7 @@
 }
 ```
 
-**Aturan server (wajib):** Express memeriksa ulang harga & ketersediaan dari PostgreSQL sebelum respons; menu `tersedia = false` dikeluarkan dari kandidat; hasil (berhasil maupun gagal) dicatat ke `riwayat_rekomendasi`; kunci API hanya di env server.
+**Aturan server (wajib):** Express memeriksa ulang harga & ketersediaan dari PostgreSQL sebelum respons; menu `tersedia = false` dikeluarkan dari kandidat; hasil (berhasil maupun gagal) dicatat ke `riwayat_rekomendasi` — **percobaan yang gagal memakai `sumber_model = 'gagal'`** supaya kasus uji "layanan AI dimatikan atau lambat" bisa diverifikasi di PostgreSQL; kunci API hanya di env server.
 
 ---
 

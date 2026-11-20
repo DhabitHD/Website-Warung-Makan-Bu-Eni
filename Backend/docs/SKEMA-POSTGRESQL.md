@@ -79,7 +79,7 @@ Hasil kombinasi menu yang diminta pembeli — disimpan Express (bukan FastAPI) s
 | `hasil_menu_ids` | `TEXT[] NOT NULL` | id menu hasil kombinasi |
 | `total_harga` | `INTEGER NOT NULL` | total hasil kombinasi |
 | `alasan` | `TEXT` | penjelasan agar bisa dibaca pembeli |
-| `sumber_model` | `TEXT NOT NULL` | `'fine-tune'` \| `'llm'` — untuk evaluasi AI |
+| `sumber_model` | `TEXT NOT NULL` | `'fine-tune'` \| `'llm'` \| `'gagal'` — `'gagal'` untuk percobaan yang AI-nya tidak merespons; **semua percobaan wajib terekam** (bahan uji "Periksa riwayatnya di PostgreSQL… layanan AI dimatikan atau lambat") |
 | `data_uji` | `BOOLEAN NOT NULL DEFAULT false` | penanda |
 | `dibuat_pada` | `TIMESTAMPTZ NOT NULL DEFAULT now()` | |
 
