@@ -3,28 +3,7 @@
 > **Status:** DRAFT siap disepakati — target persetujuan **26 Nov 2026**.
 > **PIC:** Dhabit · **Ditinjau:** Mohammad Thalib & Galih (kamus data dan aturan rekap), Rifki & Wildan (riwayat rekomendasi).
 > **Kontrak JSON terkait:** `KONTRAK-API.md` (versi 3). Pemetaan nama ada di bagian 1.4 dokumen itu.
-> **Tier:** semua tabel dipakai Inti kecuali `riwayat_rekomendasi` (Lanjutan, untuk rekomendasi AI).
 > **Mesin basis data:** PostgreSQL 15 atau lebih baru (lokal, Neon, atau Supabase).
-
----
-
-## 0. Ringkasan perubahan dari versi 2
-
-| Perubahan | Alasan |
-|---|---|
-| Ditulis sebagai **DDL SQL lengkap**, tidak lagi daftar kolom saja | Dapat langsung dijalankan dan diuji |
-| **CHECK constraint** untuk status, pembayaran, dan konsistensi `dibayar_pada` | Plan: "harga, jumlah pesanan, dan status pembayaran diperiksa" dijamin di level DB, bukan hanya di kode |
-| `dibayar_pada` **wajib sesuai** `pembayaran` (dijaga constraint) | Basis rekap pemasukan harus selalu bisa dihitung |
-| `subtotal` di `item_pesanan` sebagai **kolom terhitung** | Total pesanan tidak bisa menyimpang dari item |
-| Kolom `porsi` dan `keterangan_rasa` ditambahkan di `menu` | Plan mewajibkan keduanya dalam data menu |
-| Kolom `kode_alasan`, `latensi_ms` di `riwayat_rekomendasi` | Bukti kasus uji "layanan AI dimatikan atau lambat" |
-| **Sekuens** untuk id pesanan `BE-0001` | Konsisten dengan kontrak; tidak bergantung pada tanggal |
-| **Zona waktu Asia/Jakarta** ditetapkan untuk semua rekap | Pesanan malam hari tidak bergeser ke tanggal berikutnya |
-| Ditambah indeks untuk rekap dan pola jam | Dasbor tetap cepat saat data bertambah |
-| `nomor_meja` **nullable** (v2 `NOT NULL`) | Sesuai kesepakatan tim: `?table=` opsional. Kontrak v3 ikut berubah |
-| Penanganan race idempotensi: `INSERT … ON CONFLICT DO NOTHING` | Permintaan identik bersamaan tidak lagi menghasilkan galat (bagian 4.1) |
-| Kunci optimistik untuk status **dan** pembayaran | Dua pembaruan bersamaan tidak saling menimpa (bagian 4.2) |
-| Contoh harga diperbaiki ke katalog resmi (`lauk-05`, `sayur-07`) | Contoh v2 tidak cocok dengan katalog |
 
 ---
 
@@ -185,7 +164,7 @@ CREATE TABLE pengeluaran (
 
 > `CHECK` tidak boleh memakai `now()` (tidak konstan), jadi aturan "tidak di masa depan" dijaga di Zod (`KONTRAK-API.md` 5.6).
 
-### 3.6 `riwayat_rekomendasi` (Lanjutan)
+### 3.6 `riwayat_rekomendasi`
 
 ```sql
 CREATE TABLE riwayat_rekomendasi (
@@ -268,7 +247,7 @@ Bila ada baris → balas `200` dengan pesanan tersebut. Isi permintaan tidak div
 
 1. Validasi masukan dengan Zod, sebelum transaksi dibuka.
 2. `SELECT id, nama, harga, tersedia FROM menu WHERE id = ANY($1) FOR SHARE`. Kunci baris menu agar harga tidak berubah di tengah transaksi. Bila ada `menuId` yang tidak ada di tabel → `ROLLBACK`, lalu balas `400 MASUKAN_TIDAK_SAH` dengan `rincian` yang menunjuk `items.N.menuId`. Bila `tersedia = false` → `ROLLBACK`, lalu balas `400 MENU_HABIS`. `404` tidak dipakai di sini karena URL-nya benar, yang salah isi body (lihat KONTRAK-API.md bagian 4.3).
-3. Bila `hargaDiharapkan` dikirim (Lanjutan) dan berbeda dengan `harga` → `ROLLBACK`, lalu balas `HARGA_BERUBAH` dengan harga terkini.
+3. Bila `hargaDiharapkan` dikirim dan berbeda dengan `harga` → `ROLLBACK`, lalu balas `HARGA_BERUBAH` dengan harga terkini.
 4. Hitung `total_harga` dari `harga` yang sudah dikunci.
 5. Simpan pesanan dengan **`ON CONFLICT`**:
 
@@ -447,7 +426,7 @@ ORDER BY jam;
 | 7 | Nilai `suasana_hati` | Menunggu daftar final AI | Rifki + Wildan |
 | 8 | Batas jumlah item (50) | Disetujui | Arya |
 | 9 | `nomor_meja` nullable | **Ya**, sesuai kesepakatan tim. Form checkout frontend masih mewajibkan, keputusan ada di Arya | Arya + Dhabit |
-| 10 | Autentikasi pemilik di Inti | **Token statis** dari env, login sungguhan di Lanjutan (kontrak bagian 7) | Dhabit + Arya |
+| 10 | Autentikasi pemilik | **Token statis** dari env di awal, login sungguhan di minggu 3 (kontrak bagian 7) | Dhabit + Arya |
 
 ---
 
