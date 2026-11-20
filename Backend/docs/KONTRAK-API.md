@@ -23,7 +23,7 @@
 
 | Tier | Isi | Target |
 |---|---|---|
-| **Inti** (fokus M1) | menu, pesanan (buat, daftar, status, bayar), pengeluaran (catat, lihat), rekap ringkas, token pemilik statis | Minggu 2, selesai **3 Des** |
+| **Inti** (target M2) | menu, pesanan (buat, daftar, status, bayar), pengeluaran (catat, lihat), rekap ringkas, token pemilik statis | Minggu 2, selesai **3 Des** (M2 di Project Plan internal) |
 | **Lanjutan** | rekomendasi AI, `hargaDiharapkan`, `GET /pesanan/:id` publik, koreksi & hapus pengeluaran, hapus menu, menu terlaris, login sungguhan | Minggu 3, selesai **10 Des** |
 | **Pelengkap** | pola jam pesanan masuk, rekap harian | Bila waktu tersisa. Tidak menghalangi demo |
 
@@ -440,7 +440,7 @@ Plan tidak menjadwalkan login, tetapi plan mewajibkan halaman pemilik tidak bisa
 
 | Tahap | Mekanisme | Keterangan |
 |---|---|---|
-| **Inti (M1)** | **Token statis** di env `PEMILIK_TOKEN`, dikirim sebagai `Authorization: Bearer <token>` | Satu pemilik, satu token. Token tidak disimpan di repositori. Diganti bila pernah bocor |
+| **Inti (M2)** | **Token statis** di env `PEMILIK_TOKEN`, dikirim sebagai `Authorization: Bearer <token>` | Satu pemilik, satu token. Token tidak disimpan di repositori. Diganti bila pernah bocor |
 | **Lanjutan** | `POST /auth/login` dengan username dan password (hash bcrypt), balasan token JWT kedaluwarsa 12 jam | Dikerjakan minggu 3. Frontend mengganti halaman login mock dengan login ini |
 
 **Mengapa Bearer, bukan cookie:** frontend (Vercel) dan backend (Render) berada di domain berbeda, sehingga cookie lintas-situs rumit.
@@ -461,7 +461,7 @@ Di Lanjutan, respons login:
 
 | Metode | Path | Akses | Fungsi |
 |---|---|---|---|
-| `GET` | `/health` | publik | Kesiapan server. Respons: `{ "status": "ok", "database": "ok" }`. Dicek sebelum demo |
+| `GET` | `/health` | publik | Kesiapan server. Respons: `{ "status": "ok", "database": "belum_dihubungkan" }`. Nilai `database` menjadi `ok` atau `gagal` setelah Tahap 2. Dicek sebelum demo |
 
 ---
 
