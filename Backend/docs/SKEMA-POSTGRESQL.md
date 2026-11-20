@@ -130,7 +130,7 @@ CREATE TABLE pesanan (
 >
 > Celah hanya muncul pada dua kasus terakhir, dan jumlahnya sangat kecil. Celah **tidak** berarti pesanan hilang. Nomor adalah label, bukan penghitung. Rekap dihitung dari tabel, tidak dari nomor. Pemilik yang melihat `BE-0003` hilang boleh diberi tahu bahwa itu percobaan yang gagal, bukan pesanan yang dihapus.
 >
-> Perilaku ini sudah diuji di PostgreSQL 16: replay tidak menaikkan sekuens (`last_value` tetap 1), sedangkan dua `ON CONFLICT` yang kalah menaikkannya dari 1 ke 3.
+> Bukti uji ada di **Lampiran A**: replay tidak menaikkan sekuens (`nomor_terakhir` tetap 1), sedangkan satu permintaan yang kalah di `ON CONFLICT` menaikkannya dari 1 ke 3 (pemenang `BE-0002`, yang kalah `BE-0003`). Uji itu berurutan, bukan balapan sungguhan. Ia meniru kekalahan dengan dua `INSERT` berturut-turut. Balapan sungguhan dengan dua koneksi belum diuji.
 
 ### 3.4 `item_pesanan`
 
@@ -277,8 +277,11 @@ Kedua pembaruan memakai **kunci optimistik**: kondisi `WHERE` memuat nilai lama.
 UPDATE pesanan
 SET status = $baru, diperbarui_pada = now()
 WHERE id = $1 AND status = $lama
+  AND NOT ($baru = 'batal' AND pembayaran = 'dibayar')
 RETURNING *;
 ```
+
+Cek `pembayaran` di `WHERE` penting. Tanpanya, pesanan yang sudah dibayar dibatalkan dan hanya constraint `pesanan_batal_tidak_dibayar` yang menolak. Akibatnya klien menerima galat database yang generik. Dengan cek di `WHERE`, `UPDATE` cukup mengembalikan 0 baris, dan aplikasi membalas pesan yang jelas (lihat tabel di bawah).
 
 **Pembayaran** (sebelumnya belum memakai kunci; sekarang sama dengan status):
 
@@ -298,6 +301,7 @@ Bila `RETURNING` kosong, baca ulang pesanan dan tentukan balasan:
 | sudah berada di nilai yang diminta | `200`, tanpa perubahan (idempoten) |
 | transisi tidak sah, mis. `batal` dari `selesai` | `409 KONFLIK` |
 | pesanan `batal` dan permintaan menandai dibayar | `409 KONFLIK` |
+| status `batal` diminta, pesanan sudah `dibayar` | `409 KONFLIK` dengan pesan "Pesanan sudah dibayar. Ubah pembayaran ke 'belum' dulu, lalu batalkan." |
 | pesanan tidak ada | `404 TIDAK_DITEMUKAN` |
 
 **Penjaga terakhir:** bila dua permintaan bersamaan lolos pemeriksaan (mis. satu membatalkan, satu menandai dibayar), constraint `pesanan_batal_tidak_dibayar` tetap menolak. Database menjadi pelindung terakhir, bukan hanya kode aplikasi. Galat `23514` (CHECK violation) dipetakan ke `409 KONFLIK`.
@@ -441,3 +445,127 @@ ORDER BY jam;
 7. Jalankan pemeriksaan bagian 5.1.
 
 Setiap perubahan skema sesudah ini dibuat sebagai berkas migrasi baru, tidak mengedit berkas lama. Sebelum migrasi produksi, cadangkan database (`pg_dump`), sesuai risiko R4 di plan.
+
+
+---
+
+## Lampiran A — Bukti uji sekuens dan pembatalan
+
+**Prasyarat:** DDL bagian 3 sudah dijalankan pada PostgreSQL 16 (`postgres:16-alpine`), database kosong.
+**Cara menjalankan:** `psql -U postgres -d warung -f bukti.sql`
+
+### A.1 SQL
+
+```sql
+INSERT INTO menu (id,nama,kategori,harga,foto) VALUES ('lauk-05','Ayam Goreng','lauk',9500,'a.jpg'),('sayur-07','Sop Bening','sayur',5000,'s.jpg');
+
+\echo === BUKTI A: nomor urut ===
+INSERT INTO pesanan (id_permintaan,nama_pelanggan,nomor_meja,total_harga) VALUES ('aaaaaaaa-0000-4000-8000-000000000001','Toni','A01',14500) RETURNING id;
+\echo -- replay: hanya SELECT (langkah 0), tidak ada INSERT
+SELECT id FROM pesanan WHERE id_permintaan='aaaaaaaa-0000-4000-8000-000000000001';
+SELECT last_value AS nomor_terakhir FROM pesanan_nomor_seq;
+\echo -- permintaan baru identik dua kali berurutan: yang pertama menang, yang kedua kalah di ON CONFLICT
+INSERT INTO pesanan (id_permintaan,nama_pelanggan,nomor_meja,total_harga) VALUES ('bbbbbbbb-0000-4000-8000-000000000002','Sari','A01',14500) ON CONFLICT (id_permintaan) DO NOTHING RETURNING id;
+INSERT INTO pesanan (id_permintaan,nama_pelanggan,nomor_meja,total_harga) VALUES ('bbbbbbbb-0000-4000-8000-000000000002','Sari','A01',14500) ON CONFLICT (id_permintaan) DO NOTHING RETURNING id;
+SELECT last_value AS nomor_terakhir FROM pesanan_nomor_seq;
+SELECT count(*) AS pesanan_dengan_id_permintaan_ini FROM pesanan WHERE id_permintaan='bbbbbbbb-0000-4000-8000-000000000002';
+
+\echo === BUKTI B: batal pesanan yang sudah dibayar ===
+INSERT INTO pesanan (id_permintaan,nama_pelanggan,nomor_meja,total_harga) VALUES ('cccccccc-0000-4000-8000-000000000003','Budi','B02',14500) RETURNING id \gset
+UPDATE pesanan SET pembayaran='dibayar', dibayar_pada=now() WHERE id=:'id' AND pembayaran='belum' RETURNING id, pembayaran;
+\echo -- status ke batal tanpa cek pembayaran (rancangan lama): database yang menolak
+UPDATE pesanan SET status='batal' WHERE id=:'id' AND status='masuk' RETURNING id;
+\echo -- status ke batal dengan cek pembayaran (rancangan baru): 0 baris, tanpa galat database
+UPDATE pesanan SET status='batal' WHERE id=:'id' AND status='masuk' AND pembayaran<>'dibayar' RETURNING id;
+\echo -- setelah pembayaran dikembalikan ke belum, pembatalan berhasil
+UPDATE pesanan SET pembayaran='belum', dibayar_pada=NULL WHERE id=:'id' AND pembayaran='dibayar' RETURNING id;
+UPDATE pesanan SET status='batal' WHERE id=:'id' AND status='masuk' AND pembayaran<>'dibayar' RETURNING id, status;
+```
+
+### A.2 Output aktual
+
+```text
+INSERT 0 2
+=== BUKTI A: nomor urut ===
+   id    
+---------
+ BE-0001
+(1 row)
+
+INSERT 0 1
+-- replay: hanya SELECT (langkah 0), tidak ada INSERT
+   id    
+---------
+ BE-0001
+(1 row)
+
+ nomor_terakhir 
+----------------
+              1
+(1 row)
+
+-- permintaan baru identik dua kali berurutan: yang pertama menang, yang kedua kalah di ON CONFLICT
+   id    
+---------
+ BE-0002
+(1 row)
+
+INSERT 0 1
+ id 
+----
+(0 rows)
+
+INSERT 0 0
+ nomor_terakhir 
+----------------
+              3
+(1 row)
+
+ pesanan_dengan_id_permintaan_ini 
+----------------------------------
+                                1
+(1 row)
+
+=== BUKTI B: batal pesanan yang sudah dibayar ===
+INSERT 0 1
+   id    | pembayaran 
+---------+------------
+ BE-0004 | dibayar
+(1 row)
+
+UPDATE 1
+-- status ke batal tanpa cek pembayaran (rancangan lama): database yang menolak
+psql:/bukti.sql:18: ERROR:  new row for relation "pesanan" violates check constraint "pesanan_batal_tidak_dibayar"
+DETAIL:  Failing row contains (BE-0004, cccccccc-0000-4000-8000-000000000003, Budi, B02, null, batal, dibayar, 14500, f, 2026-11-20 10:31:50.506437+00, 2026-11-20 10:31:50.507615+00, 2026-11-20 10:31:50.506437+00).
+-- status ke batal dengan cek pembayaran (rancangan baru): 0 baris, tanpa galat database
+ id 
+----
+(0 rows)
+
+UPDATE 0
+-- setelah pembayaran dikembalikan ke belum, pembatalan berhasil
+   id    
+---------
+ BE-0004
+(1 row)
+
+UPDATE 1
+   id    | status 
+---------+--------
+ BE-0004 | batal
+(1 row)
+
+UPDATE 1
+```
+
+### A.3 Yang dibuktikan
+
+| Klaim | Bukti |
+|---|---|
+| Replay yang dicegat `SELECT` tidak menaikkan nomor | `nomor_terakhir` tetap `1` setelah replay |
+| Satu permintaan yang kalah di `ON CONFLICT` memakan nomor | pemenang `BE-0002`, `nomor_terakhir` naik ke `3`, hanya satu pesanan dengan id permintaan itu |
+| Pesanan dibayar tidak bisa dibatalkan oleh database | `ERROR: … pesanan_batal_tidak_dibayar` |
+| Cek pembayaran di `WHERE` mencegah pembatalan tanpa galat database | `UPDATE 0` pada status `batal` ketika pembayaran `dibayar` |
+| Pembatalan berhasil setelah pembayaran dikembalikan ke `belum` | `UPDATE 1`, status `batal` |
+
+**Batas uji:** `ON CONFLICT` diuji dengan dua `INSERT` berurutan, yang meniru kekalahan. Balapan sungguhan dengan dua koneksi belum diuji dan belum diklaim.

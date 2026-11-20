@@ -4,7 +4,7 @@
 > **Pemilik kontrak:** Dhabit · **Pemakai:** Arya (pembeli & pemilik di frontend), Galih & Mohammad Thalib (dasbor), Rifki & Wildan (rekomendasi).
 > **Basis data:** `SKEMA-POSTGRESQL.md` (versi 3). Pemetaan nama JSON ↔ kolom ada di bagian 1.4.
 > **Baseline:** `http://localhost:3000/api/v1` (lokal). Produksi mengikuti URL hosting (Render/Railway).
-> **Contoh harga** memakai katalog resmi di `Frontend/src/features/menu/services/menu.mock.ts`. Contoh Rp14.500 (Ayam Goreng + Sop Bening) sama dengan skenario uji "Pengiriman pesanan dan perubahan stok" di Project Plan, bagian F, halaman 15.
+> **Contoh harga** memakai katalog resmi di `Frontend/src/features/menu/services/menu.mock.ts`. Contoh Rp14.500 (Ayam Goreng + Sop Bening) sama dengan skenario uji "Pengiriman pesanan dan perubahan stok" di Project Plan, bagian F, halaman 15 (nomor cetak; berkas PDF-nya halaman ke-16).
 
 ---
 
@@ -90,7 +90,7 @@ Express mengubah `snake_case` (DB) menjadi `camelCase` (JSON). Frontend hanya me
 |---|---|---|
 | `masuk` | `diproses` | ya |
 | `diproses` | `selesai` | ya |
-| `masuk` atau `diproses` | `batal` | ya |
+| `masuk` atau `diproses` | `batal` | ya, **kecuali pesanan sudah dibayar** (lihat 2.3) |
 | `selesai` atau `batal` | apa pun | **tidak**, `409 KONFLIK` |
 | sama dengan status sekarang | — | ya, `200` tanpa perubahan (idempoten) |
 
@@ -112,7 +112,7 @@ Express mengubah `snake_case` (DB) menjadi `camelCase` (JSON). Frontend hanya me
 | `GET /menu`, `GET /menu/:id` | ✓ | ✓ |
 | `POST /pesanan` | ✓ | ✓ |
 | `GET /pesanan/:id` (publik, ringkas) | ✓ | — |
-| `GET /pesanan/:id` (pemilik, lengkap) | — | ✓ |
+| `GET /pesanan/:id` (pemilik, lengkap; dipakai `AdminOrderDetailPage` pada M2) | — | ✓ |
 | `GET /pesanan` (daftar) | — | ✓ |
 | `PATCH /pesanan/:id/status` | — | ✓ |
 | `PATCH /pesanan/:id/pembayaran` | — | ✓ |
@@ -208,6 +208,8 @@ Satu item seperti di atas. `404 TIDAK_DITEMUKAN` bila tidak ada.
 
 **Dua permintaan identik bersamaan.** Keduanya bisa lolos pemeriksaan awal. Yang kalah akan gagal di `UNIQUE`, dan server **tidak** membalas galat. Server mengambil pesanan yang menang dan membalasnya dengan `200`. Rinciannya di `SKEMA-POSTGRESQL.md` bagian 4.1.
 
+**Nomor pesanan bisa melompat.** Bila ada permintaan yang kalah dalam balapan atau insert yang gagal, nomor `id` ikut terpakai dan tidak dikembalikan. Akibatnya nomor bisa lompat, misalnya `BE-0002` lalu `BE-0004`. Ini bukan pesanan yang hilang. Rekap dihitung dari data, bukan dari nomor (lihat `SKEMA-POSTGRESQL.md` bagian 3.3).
+
 **Galat `HARGA_BERUBAH` (`409`):**
 
 ```jsonc
@@ -261,9 +263,22 @@ Versi lengkap dari 4.4, dengan field `nama`, `catatan`, dan `items` lengkap.
 // 409 KONFLIK — transisi tidak diizinkan.
 ```
 
-Pembaruan memakai **kunci optimistik**: `UPDATE … WHERE id = $1 AND status = $statusLama`. Bila tidak ada baris yang berubah, server membaca ulang pesanan:
+Pembaruan memakai **kunci optimistik**, dan untuk status `batal` ditambah cek pembayaran: `UPDATE … WHERE id = $1 AND status = $statusLama AND NOT ($baru = 'batal' AND pembayaran = 'dibayar')`. Bila tidak ada baris yang berubah, server membaca ulang pesanan:
 - status sudah sama dengan yang diminta → `200` (idempoten);
+- diminta `batal`, tetapi pesanan sudah `dibayar` → `409 KONFLIK` dengan pesan di bawah;
 - status berbeda dan transisi tidak sah → `409 KONFLIK`.
+
+```jsonc
+// 409 KONFLIK — pesanan sudah dibayar
+{
+  "galat": {
+    "kode": "KONFLIK",
+    "pesan": "Pesanan sudah dibayar. Ubah pembayaran ke 'belum' dulu, lalu batalkan."
+  }
+}
+```
+
+Constraint `pesanan_batal_tidak_dibayar` di database tetap menjadi penjaga terakhir. Bila dua permintaan bersamaan lolos pemeriksaan, constraint itu menolaknya, dan galatnya dipetakan ke `409 KONFLIK`.
 
 ### 5.4 `PATCH /pesanan/:id/pembayaran`
 
