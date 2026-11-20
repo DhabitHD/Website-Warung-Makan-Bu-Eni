@@ -1,8 +1,9 @@
-# Skema PostgreSQL — Versi 2
+# Skema PostgreSQL — Versi 3
 
 > **Status:** DRAFT siap disepakati — target persetujuan **26 Nov 2026**.
 > **PIC:** Dhabit · **Ditinjau:** Mohammad Thalib & Galih (kamus data dan aturan rekap), Rifki & Wildan (riwayat rekomendasi).
-> **Kontrak JSON terkait:** `KONTRAK-API.md` (versi 2). Pemetaan nama ada di bagian 1.3 dan 1.4 dokumen itu.
+> **Kontrak JSON terkait:** `KONTRAK-API.md` (versi 3). Pemetaan nama ada di bagian 1.4 dokumen itu.
+> **Tier:** semua tabel dipakai Inti kecuali `riwayat_rekomendasi` (Lanjutan, untuk rekomendasi AI).
 > **Mesin basis data:** PostgreSQL 15 atau lebih baru (lokal, Neon, atau Supabase).
 
 ---
@@ -20,6 +21,10 @@
 | **Sekuens** untuk id pesanan `BE-0001` | Konsisten dengan kontrak; tidak bergantung pada tanggal |
 | **Zona waktu Asia/Jakarta** ditetapkan untuk semua rekap | Pesanan malam hari tidak bergeser ke tanggal berikutnya |
 | Ditambah indeks untuk rekap dan pola jam | Dasbor tetap cepat saat data bertambah |
+| `nomor_meja` **nullable** (v2 `NOT NULL`) | Sesuai kesepakatan tim: `?table=` opsional. Kontrak v3 ikut berubah |
+| Penanganan race idempotensi: `INSERT … ON CONFLICT DO NOTHING` | Permintaan identik bersamaan tidak lagi menghasilkan galat (bagian 4.1) |
+| Kunci optimistik untuk status **dan** pembayaran | Dua pembaruan bersamaan tidak saling menimpa (bagian 4.2) |
+| Contoh harga diperbaiki ke katalog resmi (`lauk-05`, `sayur-07`) | Contoh v2 tidak cocok dengan katalog |
 
 ---
 
@@ -84,7 +89,7 @@ CREATE SEQUENCE pesanan_nomor_seq START 1;
 
 ```sql
 CREATE TABLE menu (
-  id               TEXT PRIMARY KEY,                       -- contoh: lauk-01, sayur-03
+  id               TEXT PRIMARY KEY,                       -- contoh: lauk-05 (Ayam Goreng), sayur-07 (Sop Bening)
   nama             TEXT NOT NULL
                    CHECK (char_length(nama) BETWEEN 2 AND 60),
   kategori         TEXT NOT NULL
@@ -111,8 +116,8 @@ CREATE TABLE pesanan (
   id_permintaan    UUID NOT NULL UNIQUE,                   -- kunci cegah penyimpanan ganda
   nama_pelanggan   TEXT NOT NULL
                    CHECK (char_length(nama_pelanggan) BETWEEN 2 AND 60),
-  nomor_meja       TEXT NOT NULL
-                   CHECK (nomor_meja ~ '^[A-Za-z0-9-]{1,10}$'),
+  nomor_meja       TEXT                                    -- NULL bila pesanan tanpa nomor meja (opsional)
+                   CHECK (nomor_meja IS NULL OR nomor_meja ~ '^[A-Za-z0-9-]{1,10}$'),
   catatan          TEXT
                    CHECK (catatan IS NULL OR char_length(catatan) <= 200),
   status           TEXT NOT NULL DEFAULT 'masuk'
@@ -170,7 +175,7 @@ CREATE TABLE pengeluaran (
 
 > `CHECK` tidak boleh memakai `now()` (tidak konstan), jadi aturan "tidak di masa depan" dijaga di Zod (`KONTRAK-API.md` 5.6).
 
-### 3.6 `riwayat_rekomendasi`
+### 3.6 `riwayat_rekomendasi` (Lanjutan)
 
 ```sql
 CREATE TABLE riwayat_rekomendasi (
@@ -237,25 +242,78 @@ CREATE INDEX idx_riwayat_dibuat       ON riwayat_rekomendasi (dibuat_pada);
 | 8 | Menu yang dihapus tidak memutus riwayat pesanan | `ON DELETE SET NULL` + salinan nama dan harga |
 | 9 | Rekomendasi gagal tidak punya hasil dan wajib punya alasan | `CHECK` `riwayat_gagal_konsisten` |
 | 10 | Data uji tidak tercampur rekap usaha | filter `data_uji = false` di semua query rekap |
+| 11 | Dua permintaan identik bersamaan menghasilkan satu pesanan | `INSERT … ON CONFLICT (id_permintaan) DO NOTHING` (bagian 4.1) |
+| 12 | Pembaruan bersamaan tidak saling menimpa | kunci optimistik `WHERE nilai_lama` (bagian 4.2) |
 
 ### 4.1 Pembuatan pesanan dalam satu transaksi
 
-Urutan wajib di Express, dibungkus `BEGIN … COMMIT`:
+**Langkah 0 — pemeriksaan idempotensi di luar transaksi:**
 
-1. Cek `id_permintaan` sudah ada → bila ya, `COMMIT` dan kembalikan pesanan lama.
-2. Ambil harga dan `tersedia` semua `menu_id` dengan `SELECT … FOR SHARE`. Menu yang tidak ada atau habis → `ROLLBACK`.
-3. Bandingkan dengan `hargaDiharapkan` bila ada → beda harga → `ROLLBACK` dan kirim `HARGA_BERUBAH`.
-4. Hitung `total_harga` dari harga yang baru diambil.
-5. `INSERT pesanan` (id dari sekuens) dan `INSERT item_pesanan` untuk setiap baris.
-6. `COMMIT`.
+```sql
+SELECT * FROM pesanan WHERE id_permintaan = $1;
+```
+Bila ada baris → balas `200` dengan pesanan tersebut. Isi permintaan tidak divalidasi ulang.
 
-Ini mencegah pesanan setengah tersimpan dan mencegah harga berubah di tengah jalan.
+**Langkah 1–6 — dalam satu transaksi (`BEGIN … COMMIT`):**
+
+1. Validasi masukan dengan Zod, sebelum transaksi dibuka.
+2. `SELECT id, nama, harga, tersedia FROM menu WHERE id = ANY($1) FOR SHARE`. Kunci baris menu agar harga tidak berubah di tengah transaksi. Menu tidak ditemukan atau `tersedia = false` → `ROLLBACK`, lalu balas `TIDAK_DITEMUKAN` atau `MENU_HABIS`.
+3. Bila `hargaDiharapkan` dikirim (Lanjutan) dan berbeda dengan `harga` → `ROLLBACK`, lalu balas `HARGA_BERUBAH` dengan harga terkini.
+4. Hitung `total_harga` dari `harga` yang sudah dikunci.
+5. Simpan pesanan dengan **`ON CONFLICT`**:
+
+   ```sql
+   INSERT INTO pesanan (id_permintaan, nama_pelanggan, nomor_meja, catatan, total_harga)
+   VALUES ($1, $2, $3, $4, $5)
+   ON CONFLICT (id_permintaan) DO NOTHING
+   RETURNING id;
+   ```
+
+   - Ada baris yang dikembalikan → lanjut ke langkah 6.
+   - **Tidak ada baris** → permintaan identik lain baru saja menyimpan pesanan. `ROLLBACK`, lalu baca pesanan yang menang dengan `SELECT … WHERE id_permintaan = $1` dan balas `200`. Server **tidak** membalas galat.
+
+6. `INSERT INTO item_pesanan` untuk setiap baris (nama dan harga disalin dari langkah 2), lalu `COMMIT` dan balas `201`.
+
+**Mengapa `ON CONFLICT`, bukan menangkap galat `UNIQUE`:** `ON CONFLICT` tidak membuat transaksi gagal, sehingga tidak perlu menangkap galat dari driver. Hasilnya bisa langsung dibaca dan dibalas.
+
+Alur ini mencegah pesanan tersimpan setengah (header tanpa item) dan mencegah harga berubah di tengah transaksi.
 
 ### 4.2 Perubahan status dan pembayaran
 
-Ubah baris `pesanan` dengan `UPDATE … WHERE id = $1 AND status = $statusLama` (kunci optimistik). Bila tidak ada baris yang berubah, berarti status sudah berubah oleh permintaan lain → balas `409 KONFLIK`.
+Kedua pembaruan memakai **kunci optimistik**: kondisi `WHERE` memuat nilai lama. Bila tidak ada baris yang berubah, server membaca ulang pesanan dan memutuskan balasannya.
 
-Saat `pembayaran` berubah ke `dibayar`, set `dibayar_pada = now()` dalam statement yang sama. Saat kembali ke `belum`, set `dibayar_pada = NULL`. Constraint `pesanan_dibayar_konsisten` menjaga keduanya tidak pernah lepas.
+**Status:**
+
+```sql
+UPDATE pesanan
+SET status = $baru, diperbarui_pada = now()
+WHERE id = $1 AND status = $lama
+RETURNING *;
+```
+
+**Pembayaran** (sebelumnya belum memakai kunci; sekarang sama dengan status):
+
+```sql
+UPDATE pesanan
+SET pembayaran = $baru,
+    dibayar_pada = CASE WHEN $baru = 'dibayar' THEN now() ELSE NULL END,
+    diperbarui_pada = now()
+WHERE id = $1 AND pembayaran = $lama AND status <> 'batal'
+RETURNING *;
+```
+
+Bila `RETURNING` kosong, baca ulang pesanan dan tentukan balasan:
+
+| Kondisi setelah dibaca ulang | Balasan |
+|---|---|
+| sudah berada di nilai yang diminta | `200`, tanpa perubahan (idempoten) |
+| transisi tidak sah, mis. `batal` dari `selesai` | `409 KONFLIK` |
+| pesanan `batal` dan permintaan menandai dibayar | `409 KONFLIK` |
+| pesanan tidak ada | `404 TIDAK_DITEMUKAN` |
+
+**Penjaga terakhir:** bila dua permintaan bersamaan lolos pemeriksaan (mis. satu membatalkan, satu menandai dibayar), constraint `pesanan_batal_tidak_dibayar` tetap menolak. Database menjadi pelindung terakhir, bukan hanya kode aplikasi. Galat `23514` (CHECK violation) dipetakan ke `409 KONFLIK`.
+
+Constraint `pesanan_dibayar_konsisten` menjaga `dibayar_pada` selalu terisi saat dibayar dan `NULL` saat belum.
 
 ### 4.3 Pengeluaran
 Tidak ada aturan transaksi tambahan. Koreksi dilakukan dengan `UPDATE` atau `DELETE`, tanpa riwayat terpisah di MVP.
@@ -378,6 +436,8 @@ ORDER BY jam;
 | 6 | Kolom `id_permintaan` | **Disetujui** (kunci cegah ganda) | Dhabit + Arya |
 | 7 | Nilai `suasana_hati` | Menunggu daftar final AI | Rifki + Wildan |
 | 8 | Batas jumlah item (50) | Disetujui | Arya |
+| 9 | `nomor_meja` nullable | **Ya**, sesuai kesepakatan tim. Form checkout frontend masih mewajibkan, keputusan ada di Arya | Arya + Dhabit |
+| 10 | Autentikasi pemilik di Inti | **Token statis** dari env, login sungguhan di Lanjutan (kontrak bagian 7) | Dhabit + Arya |
 
 ---
 
