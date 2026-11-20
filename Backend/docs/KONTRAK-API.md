@@ -39,11 +39,15 @@
 | `POST` | `/pesanan` | Simpan pesanan baru (hitung total di server) | CheckoutPage |
 | `GET` | `/pesanan/:id` | Cek pesanan (konfirmasi, status) | OrderSuccessPage |
 
+**Catatan `GET /menu`:** mengembalikan **semua menu, termasuk yang `tersedia = false`** (field `tersedia` ikut terkirim) — halaman pelanggan menampilkan badge "Habis" dengan tombol nonaktif, bukan menyembunyikannya. Server menu habis ini juga menolak pada `POST /pesanan`.
+
 ### `POST /pesanan`
 
 ```jsonc
 // permintaan
 {
+  "idPermintaan": "c9f1e2a4-...",       // id acak frontend — kunci cegah penyimpanan ganda
+  "nama": "Toni",                       // nama pelanggan (dari form checkout)
   "nomorMeja": "A01",
   "catatan": "tanpa sambal",            // opsional
   "items": [ { "menuId": "lauk-01", "jumlah": 2 } ]
@@ -52,6 +56,7 @@
 {
   "data": {
     "id": "BE-0001",
+    "nama": "Toni",
     "nomorMeja": "A01",
     "status": "masuk",
     "pembayaran": "belum",
@@ -62,7 +67,12 @@
 }
 ```
 
-**Aturan:** jumlah `<= 0` atau id menu tidak ada → `400`. Menu `tersedia = false` → `400` dengan pesan "sedang habis". Tombol kirim ditekan dua kali tidak membuat dua pesanan (frontend menonaktifkan tombol saat mengirim).
+**Aturan:**
+- Jumlah `<= 0` atau id menu tidak ada → `400`. Menu `tersedia = false` → `400` dengan pesan "sedang habis".
+- Format `nomorMeja` divalidasi sama dengan frontend: `[A-Za-z0-9-]`, maksimal 10 karakter.
+- `items` hanya menerima `menuId` + `jumlah` — salinan nama/harga dari keranjang frontend **dibuang** (server memakai harga `menu`).
+- Field `totalHarga` bila frontend ikut mengirim **diabaikan** — total selalu dihitung server.
+- **Cegah penyimpanan ganda:** `idPermintaan` yang sama dikirim ulang (retry/refresh/tombol ditekan dua kali) mengembalikan pesanan lama (200), bukan membuat pesanan baru.
 
 ---
 
@@ -80,6 +90,25 @@
 | `GET` | `/pengeluaran` | Daftar pengeluaran (`?dari=&sampai=`) | halaman rekap |
 | `GET` | `/rekap` | Rekap keuangan per periode | AdminHistoryPage |
 | `GET` | `/rekap/menu-terlaris` | Menu terlaris + jumlah pesanan | AdminOverviewPage |
+
+### `GET /pesanan?status=&dari=&sampai=`
+
+```jsonc
+// 200 — daftar pesanan untuk halaman pemilik (terbaru dulu)
+{
+  "data": [
+    {
+      "id": "BE-0001",
+      "nama": "Toni",
+      "nomorMeja": "A01",
+      "status": "masuk",
+      "pembayaran": "belum",
+      "totalHarga": 14500,
+      "dibuatPada": "2026-11-20T07:30:00.000Z"
+    }
+  ]
+}
+```
 
 ### `GET /rekap?dari=2026-12-01&sampai=2026-12-31`
 
@@ -101,6 +130,11 @@
 // permintaan
 { "pembayaran": "dibayar" }
 // 200 — idempoten: mengirim ulang nilai sama → 200 tanpa menghitung dua kali
+// "dibayar"   → server mencatat waktu dibayar (dibayarPada)
+// "belum"     → dibayarPada dikosongkan kembali
+// Aturan: pesanan berstatus "batal" tidak boleh ditandai dibayar (400);
+//         pesanan yang sudah dibayar tidak boleh langsung "batal" —
+//         ubah pembayaran ke "belum" dulu
 ```
 
 ---
@@ -114,7 +148,7 @@
 ```jsonc
 // permintaan
 {
-  "nomorMeja": "A01",
+  "nomorMeja": "A01",           // opsional
   "suasanaHati": "sedang",      // enum — menunggu finalisasi dari AI
   "tingkatPedas": 1,            // 0 | 1 | 2
   "anggaran": 15000
@@ -129,8 +163,12 @@
     "sumberModel": "fine-tune"
   }
 }
-// 200 dengan "data": null + pesan — bila AI gagal / anggaran tak masuk akal
-// → frontend menampilkan penjelasan, katalog & pesanan langsung TETAP berfungsi
+// gagal (AI mati / lambat / anggaran tak masuk akal) — tetap 200, BUKAN galat,
+// supaya katalog & pemesanan langsung di frontend tidak terganggu:
+{
+  "data": null,
+  "alasan": "Rekomendasi sedang tidak tersedia. Silakan pilih menu langsung."
+}
 ```
 
 **Aturan server (wajib):** Express memeriksa ulang harga & ketersediaan dari PostgreSQL sebelum respons; menu `tersedia = false` dikeluarkan dari kandidat; hasil (berhasil maupun gagal) dicatat ke `riwayat_rekomendasi`; kunci API hanya di env server.
@@ -153,8 +191,11 @@
 | 1 | **Autentikasi pemilik** — sesi atau Bearer token? | cookie session vs JWT | Dhabit + Arya |
 | 2 | **Nama field**: `camelCase` di JSON (contoh di atas) vs `snake_case` | konsistensi dengan frontend | Dhabit + Arya |
 | 3 | **Enum `suasanaHati`** — daftar nilai final | menunggu AI (Rifki/Wildan) | AI |
-| 4 | **Bentuk respons rekomendasi gagal** — `data: null` vs kode galat khusus | | Arya + Wildan |
+| 4 | **Bentuk respons rekomendasi gagal** — usulan: `200 + data: null` (lihat §4) | `200 + null` vs kode galat khusus | Arya + Wildan |
 | 5 | **Pagination** daftar pesanan/pengeluaran | bawaan / tidak perlu | Dhabit + Galih |
+| 6 | **`idPermintaan`** (kunci cegah ganda, lihat §2) — disetujui? | ya / hanya cek frontend | Dhabit + Arya |
+| 7 | **Nama field `deskripsi`**: frontend memakai `deskripsi`, skema `keterangan_rasa` | petakan / ubah nama kolom | Dhabit + Arya |
+| 8 | **Basis tanggal pemasukan rekap**: `dibayarPada` (usulan, lihat §8) vs `dibuatPada` | | Dhabit + Galih |
 
 ---
 
@@ -186,5 +227,6 @@ Agar dasbor analisis terpenuhi, endpoint di §3 menyediakan:
 - **menu terlaris** — `GET /rekap/menu-terlaris`
 - **waktu pesanan masuk** (pola penjualan) — `GET /pesanan?dari=&sampai=` mengembalikan `dibuatPada`
 - hanya transaksi `pembayaran = 'dibayar'` dan `data_uji = false` yang dihitung
+- **basis tanggal pemasukan (usulan): tanggal dibayar (`dibayarPada`), bukan tanggal pesanan dibuat** — pesanan dibuat 30 Nov tapi dibayar 1 Des masuk rekap Desember. Perlu persetujuan DS karena berpengaruh ke kamus data.
 
 Bila DS butuh bentuk lain (mis. deret harian), tambahkan di bagian ini sebelum kontrak dikunci.

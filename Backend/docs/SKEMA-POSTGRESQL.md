@@ -30,13 +30,17 @@ Satu baris = satu kirim pesanan pelanggan.
 | Kolom | Tipe | Keterangan |
 |---|---|---|
 | `id` | `TEXT PRIMARY KEY` | contoh: `BE-0001` |
+| `id_permintaan` | `TEXT UNIQUE` | id acak frontend per sesi checkout — **kunci cegah penyimpanan ganda** (usulan, lihat §5) |
 | `nomor_meja` | `TEXT NOT NULL` | dari query QR `?table=A01` |
+| `nama_pelanggan` | `TEXT NOT NULL` | dari form checkout |
 | `status` | `TEXT NOT NULL DEFAULT 'masuk'` | `'masuk'` → `'diproses'` → `'selesai'` / `'batal'` (CHECK) |
 | `pembayaran` | `TEXT NOT NULL DEFAULT 'belum'` | `'belum'` \| `'dibayar'` (CHECK) |
-| `total_harga` | `INTEGER NOT NULL` | **dihitung server dari harga `menu` saat pesanan dibuat** |
+| `total_harga` | `INTEGER NOT NULL CHECK (total_harga >= 0)` | **dihitung server dari harga `menu` saat pesanan dibuat** |
 | `catatan` | `TEXT` | catatan pelanggan |
 | `data_uji` | `BOOLEAN NOT NULL DEFAULT false` | penanda transaksi simulasi |
-| `dibuat_pada` | `TIMESTAMPTZ NOT NULL DEFAULT now()` | dipakai dasbor: waktu pesanan masuk |
+| `dibuat_pada` | `TIMESTAMPTZ NOT NULL DEFAULT now()` | waktu pesanan masuk (pola penjualan) |
+| `dibayar_pada` | `TIMESTAMPTZ` | diisi saat pembayaran menjadi `'dibayar'`, dikosongkan kembali bila `"belum"` — **basis tanggal rekap pemasukan (usulan)** |
+| `diperbarui_pada` | `TIMESTAMPTZ NOT NULL DEFAULT now()` | |
 
 ### `item_pesanan`
 Rincian tiap menu dalam satu pesanan. Nama & harga **disalin** saat pesanan dibuat agar riwayat tidak ikut berubah bila menu diedit.
@@ -45,7 +49,7 @@ Rincian tiap menu dalam satu pesanan. Nama & harga **disalin** saat pesanan dibu
 |---|---|---|
 | `id` | `BIGSERIAL PRIMARY KEY` | |
 | `pesanan_id` | `TEXT NOT NULL REFERENCES pesanan(id) ON DELETE CASCADE` | |
-| `menu_id` | `TEXT REFERENCES menu(id)` | `NULL` bila menu sudah dihapus |
+| `menu_id` | `TEXT REFERENCES menu(id) ON DELETE SET NULL` | `NULL` bila menu sudah dihapus — nama & harga salinan tetap ada |
 | `nama` | `TEXT NOT NULL` | salinan nama menu |
 | `harga` | `INTEGER NOT NULL` | salinan harga saat pesanan |
 | `jumlah` | `INTEGER NOT NULL CHECK (jumlah > 0)` | |
@@ -95,17 +99,21 @@ CREATE INDEX idx_menu_kategori         ON menu (kategori);
 
 ```text
 pemasukan periode  = SUM(total_harga)  WHERE pembayaran = 'dibayar'
-                      AND data_uji = false AND dibuat_pada dalam periode
+                       AND data_uji = false AND dibayar_pada dalam periode
+                       (usulan basis tanggal; lihat §5)
 pengeluaran periode = SUM(nominal)      WHERE data_uji = false
-                      AND tanggal dalam periode
+                       AND tanggal dalam periode
 saldo arus kas      = pemasukan − pengeluaran        (bukan laba bersih)
 menu terlaris       = JOIN item_pesanan × pesanan
                       WHERE pembayaran = 'dibayar' AND data_uji = false
-                      GROUP BY menu_id, jumlah pesanan terbesar
+                      GROUP BY item_pesanan.nama (salinan), jumlah pesanan terbesar
+                      (pakai salinan nama karena menu_id bisa NULL bila menu dihapus)
 ```
 
 - Status `selesai` **sama sekali tidak** menambah pemasukan — hanya `pembayaran = 'dibayar'`.
 - Pengulangan permintaan ubah status tidak menghitung ganda (idempoten: `total_harga` dihitung saat pesanan dibuat, bukan saat status berubah).
+- Pengiriman ulang `id_permintaan` yang sama mengembalikan pesanan lama, bukan membuat pesanan baru.
+- Pesanan berstatus `batal` tidak boleh ditandai `dibayar`; pesanan yang sudah `dibayar` tidak bisa langsung `batal` (ubah pembayaran ke `belum` dulu).
 
 ## 4. Pemisahan data uji
 
@@ -119,3 +127,6 @@ Semua tabel transaksi punya kolom `data_uji`. Selama pengembangan, seed/contoh d
 | 2 | Id pesanan format `BE-0001` vs UUID | TEXT vs UUID | Dhabit + Arya |
 | 3 | Akses DB: **Prisma** vs `node-postgres` | keduanya diizinkan plan | Dhabit |
 | 4 | Penamaan kolom `data_uji` | `is_test` (Inggris) vs `data_uji` | Dhabit + Galih |
+| 5 | Basis tanggal pemasukan rekap: `dibayar_pada` (usulan) vs `dibuat_pada` | | Dhabit + Galih |
+| 6 | Kolom `id_permintaan` (kunci cegah ganda) — disetujui? | ya / tanpa itu | Dhabit + Arya |
+| 7 | `keterangan_rasa` (skema) vs `deskripsi` (frontend) — samakan nama | petakan / ubah nama | Dhabit + Arya |
