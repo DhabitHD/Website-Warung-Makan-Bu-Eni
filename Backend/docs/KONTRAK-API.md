@@ -8,6 +8,18 @@
 
 ---
 
+## 0. Tier pengerjaan
+
+| Tier | Isi | Target |
+|---|---|---|
+| **Inti** (target M2) | menu, pesanan (buat, daftar, status, bayar), pengeluaran (catat, lihat), rekap ringkas, token pemilik statis | Minggu 2, selesai **3 Des** (M2 di Project Plan internal) |
+| **Lanjutan** | rekomendasi AI, `hargaDiharapkan`, `GET /pesanan/:id` publik, koreksi & hapus pengeluaran, hapus menu, menu terlaris, login sungguhan | Minggu 3, selesai **10 Des** |
+| **Pelengkap** | pola jam pesanan masuk, rekap harian | Bila waktu tersisa. Tidak menghalangi demo |
+
+> **Lanjutan bukan berarti boleh dilewati.** Semua indikator wajib plan (termasuk menu terlaris dan rekomendasi) tetap harus jalan sebelum demo. Tier hanya mengatur urutan kerja.
+
+---
+
 ## 1. Konvensi umum
 
 ### 1.1 Format
@@ -104,24 +116,27 @@ Express mengubah `snake_case` (DB) menjadi `camelCase` (JSON). Frontend hanya me
 
 ---
 
-## 3. Matriks akses
+## 3. Matriks akses dan tier
 
-| Endpoint | Publik | Pemilik |
-|---|:-:|:-:|
-| `GET /health` | ✓ | ✓ |
-| `GET /menu`, `GET /menu/:id` | ✓ | ✓ |
-| `POST /pesanan` | ✓ | ✓ |
-| `GET /pesanan/:id` (publik, ringkas) | ✓ | — |
-| `GET /pesanan/:id` (pemilik, lengkap; dipakai `AdminOrderDetailPage` pada M2) | — | ✓ |
-| `GET /pesanan` (daftar) | — | ✓ |
-| `PATCH /pesanan/:id/status` | — | ✓ |
-| `PATCH /pesanan/:id/pembayaran` | — | ✓ |
-| `POST /menu`, `PATCH /menu/:id`, `DELETE /menu/:id` | — | ✓ |
-| `POST /pengeluaran`, `GET /pengeluaran` | — | ✓ |
-| `PATCH /pengeluaran/:id`, `DELETE /pengeluaran/:id` | — | ✓ |
-| `GET /rekap`, `GET /rekap/menu-terlaris`, `GET /rekap/pola-jam` | — | ✓ |
-| `POST /rekomendasi` | ✓ | ✓ |
-| `POST /auth/login` | ✓ | — |
+| Endpoint | Publik | Pemilik | Tier |
+|---|:-:|:-:|---|
+| `GET /health` | ✓ | ✓ | Inti |
+| `GET /menu`, `GET /menu/:id` | ✓ | ✓ | Inti |
+| `POST /pesanan` | ✓ | ✓ | Inti (`hargaDiharapkan` ikut Lanjutan) |
+| `GET /pesanan` (daftar) | — | ✓ | Inti |
+| `GET /pesanan/:id` (publik, ringkas) | ✓ | — | Lanjutan |
+| `GET /pesanan/:id` (pemilik, lengkap) | — | ✓ | Inti (dipakai `AdminOrderDetailPage` pada M2) |
+| `PATCH /pesanan/:id/status` | — | ✓ | Inti |
+| `PATCH /pesanan/:id/pembayaran` | — | ✓ | Inti |
+| `POST /menu`, `PATCH /menu/:id` | — | ✓ | Inti |
+| `DELETE /menu/:id` | — | ✓ | Lanjutan |
+| `POST /pengeluaran`, `GET /pengeluaran` | — | ✓ | Inti |
+| `PATCH /pengeluaran/:id`, `DELETE /pengeluaran/:id` | — | ✓ | Lanjutan |
+| `GET /rekap` | — | ✓ | Inti |
+| `GET /rekap/menu-terlaris` | — | ✓ | Lanjutan |
+| `GET /rekap/pola-jam` | — | ✓ | Pelengkap |
+| `POST /rekomendasi` | ✓ | ✓ | Lanjutan (wajib, selesai 10 Des) |
+| `POST /auth/login` | ✓ | — | Lanjutan (Inti memakai token statis, bagian 7) |
 
 Pengguna tanpa token yang mengakses endpoint pemilik menerima `401 TANPA_HAK` dan tidak mendapat data apa pun.
 
@@ -180,7 +195,7 @@ Satu item seperti di atas. `404 TIDAK_DITEMUKAN` bila tidak ada.
 - Item dengan `tersedia = false` → `400 MENU_HABIS`.
 - `nomorMeja` boleh tidak dikirim. Pesanan tetap tersimpan dengan `nomorMeja: null`. Pemilik melihat "tanpa meja" di daftar.
 - Nama dan harga dari keranjang frontend **tidak dipakai**. Server mengambil dari tabel `menu`.
-- `hargaDiharapkan` per item (opsional). Bila berbeda dengan harga server → `409 HARGA_BERUBAH`.
+- *(Lanjutan)* `hargaDiharapkan` per item (opsional). Bila berbeda dengan harga server → `409 HARGA_BERUBAH`.
 
 **Respons sukses (`201`):**
 
@@ -210,7 +225,7 @@ Satu item seperti di atas. `404 TIDAK_DITEMUKAN` bila tidak ada.
 
 **Nomor pesanan bisa melompat.** Bila ada permintaan yang kalah dalam balapan atau insert yang gagal, nomor `id` ikut terpakai dan tidak dikembalikan. Akibatnya nomor bisa lompat, misalnya `BE-0002` lalu `BE-0004`. Ini bukan pesanan yang hilang. Rekap dihitung dari data, bukan dari nomor (lihat `SKEMA-POSTGRESQL.md` bagian 3.3).
 
-**Galat `HARGA_BERUBAH` (`409`):**
+**Galat `HARGA_BERUBAH` (`409`, Lanjutan):**
 
 ```jsonc
 {
@@ -226,7 +241,7 @@ Satu item seperti di atas. `404 TIDAK_DITEMUKAN` bila tidak ada.
 
 Frontend menampilkan harga baru dan memperbarui keranjang. Pembeli menekan kirim lagi setelah melihatnya. Ini memenuhi skenario uji plan "pembeli menerima pemberitahuan sebelum melanjutkan pesanan".
 
-### 4.4 `GET /pesanan/:id` (publik, ringkas)
+### 4.4 `GET /pesanan/:id` (publik, ringkas, Lanjutan)
 
 Dipakai halaman konfirmasi. Respons publik **tidak** memuat `nama` dan `catatan` agar data pelanggan terlindungi.
 
@@ -248,13 +263,13 @@ Dipakai halaman konfirmasi. Respons publik **tidak** memuat `nama` dan `catatan`
 
 ## 5. Pengelolaan pemilik (butuh token)
 
-### 5.1 `GET /pesanan`
+### 5.1 `GET /pesanan` (Inti)
 Query opsional: `status`, `pembayaran`, `dari`, `sampai` (filter `dibuatPada`, dihitung dalam WIB). Urutan terbaru dulu. Memuat field lengkap termasuk `nama` dan `catatan`.
 
-### 5.2 `GET /pesanan/:id` (pemilik)
+### 5.2 `GET /pesanan/:id` (pemilik, Inti)
 Versi lengkap dari 4.4, dengan field `nama`, `catatan`, dan `items` lengkap.
 
-### 5.3 `PATCH /pesanan/:id/status`
+### 5.3 `PATCH /pesanan/:id/status` (Inti)
 
 ```jsonc
 // permintaan
@@ -280,7 +295,7 @@ Pembaruan memakai **kunci optimistik**, dan untuk status `batal` ditambah cek pe
 
 Constraint `pesanan_batal_tidak_dibayar` di database tetap menjadi penjaga terakhir. Bila dua permintaan bersamaan lolos pemeriksaan, constraint itu menolaknya, dan galatnya dipetakan ke `409 KONFLIK`.
 
-### 5.4 `PATCH /pesanan/:id/pembayaran`
+### 5.4 `PATCH /pesanan/:id/pembayaran` (Inti)
 
 ```jsonc
 // permintaan
@@ -292,7 +307,7 @@ Constraint `pesanan_batal_tidak_dibayar` di database tetap menjadi penjaga terak
 
 Pembaruan juga memakai **kunci optimistik**: `UPDATE … WHERE id = $1 AND pembayaran = $pembayaranLama AND status <> 'batal'`. Logika balasan sama dengan 5.3. Constraint di database (`pesanan_batal_tidak_dibayar`) tetap menjadi penjaga terakhir.
 
-### 5.5 Menu
+### 5.5 Menu (Inti: `POST`, `PATCH`; Lanjutan: `DELETE`)
 
 | Metode | Path | Fungsi |
 |---|---|---|
@@ -304,12 +319,12 @@ Validasi (sesuai form admin): `nama` 2–60 karakter, `harga` bilangan bulat 0�
 
 ### 5.6 Pengeluaran
 
-| Metode | Path | Fungsi |
-|---|---|---|
-| `POST` | `/pengeluaran` | Catat pengeluaran |
-| `GET` | `/pengeluaran` | Daftar, query `dari`, `sampai` |
-| `PATCH` | `/pengeluaran/:id` | Koreksi nominal, tanggal, atau keterangan |
-| `DELETE` | `/pengeluaran/:id` | Hapus catatan yang salah |
+| Metode | Path | Tier | Fungsi |
+|---|---|---|---|
+| `POST` | `/pengeluaran` | Inti | Catat pengeluaran |
+| `GET` | `/pengeluaran` | Inti | Daftar, query `dari`, `sampai` |
+| `PATCH` | `/pengeluaran/:id` | Lanjutan | Koreksi nominal, tanggal, atau keterangan |
+| `DELETE` | `/pengeluaran/:id` | Lanjutan | Hapus catatan yang salah |
 
 ```jsonc
 // POST /pengeluaran — permintaan
@@ -323,7 +338,7 @@ Batas pengeluaran: `nominal` bilangan bulat **1 – 100.000.000** (Rp100 juta). 
 
 Semua rekap memakai aturan yang sama: **hanya** `pembayaran = dibayar` dan `data_uji = false` yang masuk pemasukan. Periode memakai tanggal **pembayaran** (`dibayarPada`, WIB), bukan tanggal pesanan dibuat.
 
-#### `GET /rekap?dari=2026-12-01&sampai=2026-12-31`
+#### `GET /rekap?dari=2026-12-01&sampai=2026-12-31` (Inti)
 
 ```jsonc
 {
@@ -341,7 +356,7 @@ Semua rekap memakai aturan yang sama: **hanya** `pembayaran = dibayar` dan `data
 - `dari` dan `sampai` **wajib**, format `YYYY-MM-DD`, dan `dari ≤ sampai`. Pelanggaran → `400 MASUKAN_TIDAK_SAH`.
 - Periode tanpa transaksi → angka **nol** dengan `200`, bukan galat.
 
-#### `GET /rekap/menu-terlaris?dari=&sampai=&limit=5`
+#### `GET /rekap/menu-terlaris?dari=&sampai=&limit=5` (Lanjutan)
 
 ```jsonc
 {
@@ -353,7 +368,7 @@ Semua rekap memakai aturan yang sama: **hanya** `pembayaran = dibayar` dan `data
 ```
 Hanya pesanan dibayar dalam periode. Dikelompokkan per **nama salinan** agar menu yang sudah dihapus tetap muncul. Diurutkan `jumlahTerjual` menurun. `limit` default 5, maksimum 20.
 
-#### `GET /rekap/pola-jam?dari=&sampai=`
+#### `GET /rekap/pola-jam?dari=&sampai=` (Pelengkap)
 
 ```jsonc
 {
@@ -367,7 +382,7 @@ Basis `dibuatPada` (WIB), status ≠ `batal`, `data_uji = false`. Jam tanpa pesa
 
 ---
 
-## 6. Rekomendasi kombinasi (integrasi AI)
+## 6. Rekomendasi kombinasi (integrasi AI, Lanjutan)
 
 ### 6.1 `POST /rekomendasi`
 
@@ -431,12 +446,12 @@ Plan tidak menjadwalkan login, tetapi plan mewajibkan halaman pemilik tidak bisa
 
 | Tahap | Mekanisme | Keterangan |
 |---|---|---|
-| **Awal** (sebelum 3 Des) | **Token statis** di env `PEMILIK_TOKEN`, dikirim sebagai `Authorization: Bearer <token>` | Satu pemilik, satu token. Token tidak disimpan di repositori. Diganti bila pernah bocor |
-| **Berikutnya** (minggu 3) | `POST /auth/login` dengan username dan password (hash bcrypt), balasan token JWT kedaluwarsa 12 jam | Frontend mengganti halaman login mock dengan login ini |
+| **Inti** (M2) | **Token statis** di env `PEMILIK_TOKEN`, dikirim sebagai `Authorization: Bearer <token>` | Satu pemilik, satu token. Token tidak disimpan di repositori. Diganti bila pernah bocor |
+| **Lanjutan** (minggu 3) | `POST /auth/login` dengan username dan password (hash bcrypt), balasan token JWT kedaluwarsa 12 jam | Frontend mengganti halaman login mock dengan login ini |
 
 **Mengapa Bearer, bukan cookie:** frontend (Vercel) dan backend (Render) berada di domain berbeda, sehingga cookie lintas-situs rumit.
 
-Respons login berikutnya:
+Respons login di tahap Lanjutan:
 
 ```jsonc
 // POST /auth/login — permintaan
@@ -477,17 +492,17 @@ Nilai `suasanaHati` di atas adalah contoh. Gantilah dengan daftar final dari AI.
 
 ## 10. Kebutuhan dasbor (bahan tim DS)
 
-| Kebutuhan dasbor (plan) | Endpoint | Field |
-|---|---|---|
-| Pemasukan per periode | `GET /rekap` | `pemasukan` |
-| Pengeluaran per periode | `GET /rekap` | `pengeluaran` |
-| Saldo arus kas | `GET /rekap` | `saldoArusKas` |
-| Jumlah pesanan | `GET /rekap` | `jumlahPesananDibayar`, `jumlahPesananMasuk` |
-| Menu terlaris | `GET /rekap/menu-terlaris` | `nama`, `jumlahTerjual`, `omzet` |
-| Waktu pesanan masuk | `GET /rekap/pola-jam` | `jam`, `jumlahPesanan` |
+| Kebutuhan dasbor (plan) | Endpoint | Field | Tier |
+|---|---|---|---|
+| Pemasukan per periode | `GET /rekap` | `pemasukan` | Inti |
+| Pengeluaran per periode | `GET /rekap` | `pengeluaran` | Inti |
+| Saldo arus kas | `GET /rekap` | `saldoArusKas` | Inti |
+| Jumlah pesanan | `GET /rekap` | `jumlahPesananDibayar`, `jumlahPesananMasuk` | Inti |
+| Menu terlaris | `GET /rekap/menu-terlaris` | `nama`, `jumlahTerjual`, `omzet` | Lanjutan |
+| Waktu pesanan masuk | `GET /rekap/pola-jam` | `jam`, `jumlahPesanan` | Pelengkap |
 
 Pertanyaan DS yang belum dijawab:
-- Apakah grafik harian diperlukan? Bila ya, tambahkan `GET /rekap/harian`.
+- Apakah grafik harian diperlukan? Bila ya, tambahkan `GET /rekap/harian` sebagai Pelengkap.
 - Apakah rata-rata nilai pesanan (`pemasukan / jumlahPesananDibayar`) perlu ditampilkan?
 
 ---
@@ -496,7 +511,7 @@ Pertanyaan DS yang belum dijawab:
 
 | # | Keputusan | Rekomendasi saya | PIC |
 |---|---|---|---|
-| 1 | Autentikasi | **Token statis di awal**, login sungguhan di minggu 3 (bagian 7) | Dhabit + Arya |
+| 1 | Autentikasi | **Token statis di Inti**, login sungguhan di Lanjutan (bagian 7) | Dhabit + Arya |
 | 2 | Nama field JSON | **camelCase** | Dhabit + Arya |
 | 3 | Daftar `suasanaHati` | Minimal 5 nilai, dibuat AI dari data DS | Rifki + Wildan |
 | 4 | Format id pesanan | **`BE-0001`** dari sekuens server | Dhabit + Arya |

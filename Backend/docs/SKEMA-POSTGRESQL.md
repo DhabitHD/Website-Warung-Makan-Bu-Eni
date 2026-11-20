@@ -3,6 +3,7 @@
 > **Status:** DRAFT siap disepakati — target persetujuan **26 Nov 2026**.
 > **PIC:** Dhabit · **Ditinjau:** Mohammad Thalib & Galih (kamus data dan aturan rekap), Rifki & Wildan (riwayat rekomendasi).
 > **Kontrak JSON terkait:** `KONTRAK-API.md` (versi 3). Pemetaan nama ada di bagian 1.4 dokumen itu.
+> **Tier:** semua tabel dipakai Inti kecuali `riwayat_rekomendasi` (Lanjutan, untuk rekomendasi AI).
 > **Mesin basis data:** PostgreSQL 15 atau lebih baru (lokal, Neon, atau Supabase).
 
 ---
@@ -164,7 +165,7 @@ CREATE TABLE pengeluaran (
 
 > `CHECK` tidak boleh memakai `now()` (tidak konstan), jadi aturan "tidak di masa depan" dijaga di Zod (`KONTRAK-API.md` 5.6).
 
-### 3.6 `riwayat_rekomendasi`
+### 3.6 `riwayat_rekomendasi` (Lanjutan)
 
 ```sql
 CREATE TABLE riwayat_rekomendasi (
@@ -247,7 +248,7 @@ Bila ada baris → balas `200` dengan pesanan tersebut. Isi permintaan tidak div
 
 1. Validasi masukan dengan Zod, sebelum transaksi dibuka.
 2. `SELECT id, nama, harga, tersedia FROM menu WHERE id = ANY($1) FOR SHARE`. Kunci baris menu agar harga tidak berubah di tengah transaksi. Bila ada `menuId` yang tidak ada di tabel → `ROLLBACK`, lalu balas `400 MASUKAN_TIDAK_SAH` dengan `rincian` yang menunjuk `items.N.menuId`. Bila `tersedia = false` → `ROLLBACK`, lalu balas `400 MENU_HABIS`. `404` tidak dipakai di sini karena URL-nya benar, yang salah isi body (lihat KONTRAK-API.md bagian 4.3).
-3. Bila `hargaDiharapkan` dikirim dan berbeda dengan `harga` → `ROLLBACK`, lalu balas `HARGA_BERUBAH` dengan harga terkini.
+3. Bila `hargaDiharapkan` dikirim (Lanjutan) dan berbeda dengan `harga` → `ROLLBACK`, lalu balas `HARGA_BERUBAH` dengan harga terkini.
 4. Hitung `total_harga` dari `harga` yang sudah dikunci.
 5. Simpan pesanan dengan **`ON CONFLICT`**:
 
@@ -430,7 +431,7 @@ ORDER BY jam;
 | 7 | Nilai `suasana_hati` | Menunggu daftar final AI | Rifki + Wildan |
 | 8 | Batas jumlah item (50) | Disetujui | Arya |
 | 9 | `nomor_meja` nullable | **Ya**, sesuai kesepakatan tim. Form checkout frontend masih mewajibkan, keputusan ada di Arya | Arya + Dhabit |
-| 10 | Autentikasi pemilik | **Token statis** dari env di awal, login sungguhan di minggu 3 (kontrak bagian 7) | Dhabit + Arya |
+| 10 | Autentikasi pemilik di Inti | **Token statis** dari env, login sungguhan di Lanjutan (kontrak bagian 7) | Dhabit + Arya |
 
 ---
 
