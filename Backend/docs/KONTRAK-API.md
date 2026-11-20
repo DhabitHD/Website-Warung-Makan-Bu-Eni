@@ -4,7 +4,7 @@
 > **Pemilik kontrak:** Dhabit · **Pemakai:** Arya (pembeli & pemilik di frontend), Galih & Mohammad Thalib (dasbor), Rifki & Wildan (rekomendasi).
 > **Basis data:** `SKEMA-POSTGRESQL.md` (versi 3). Pemetaan nama JSON ↔ kolom ada di bagian 1.4.
 > **Baseline:** `http://localhost:3000/api/v1` (lokal). Produksi mengikuti URL hosting (Render/Railway).
-> **Contoh harga** memakai katalog resmi di `Frontend/src/features/menu/services/menu.mock.ts`. Contoh Rp14.500 (Ayam Goreng + Sop Bening) sama dengan contoh di Project Plan.
+> **Contoh harga** memakai katalog resmi di `Frontend/src/features/menu/services/menu.mock.ts`. Contoh Rp14.500 (Ayam Goreng + Sop Bening) sama dengan skenario uji "Pengiriman pesanan dan perubahan stok" di Project Plan, bagian F, halaman 15.
 
 ---
 
@@ -56,10 +56,10 @@
 
 | Kode | HTTP | Dipakai saat |
 |---|---|---|
-| `MASUKAN_TIDAK_SAH` | 400 | Zod menolak masukan (kosong, negatif, format salah, tanggal tidak valid) |
+| `MASUKAN_TIDAK_SAH` | 400 | Zod menolak masukan (kosong, negatif, format salah, tanggal tidak valid), **atau `menuId` di body tidak dikenal**. `rincian` menunjuk field-nya, mis. `items.0.menuId` |
 | `MENU_HABIS` | 400 | Ada item dengan `tersedia = false`. `rincian` berisi `menuId` yang habis |
 | `TANPA_HAK` | 401 | Token tidak ada, salah, atau kedaluwarsa |
-| `TIDAK_DITEMUKAN` | 404 | id tidak ada, atau rute salah |
+| `TIDAK_DITEMUKAN` | 404 | **Resource di URL** tidak ada (`GET /menu/:id`, `PATCH /pesanan/:id/...`), atau rutenya salah. Ini satu-satunya pemakaian 404 |
 | `KONFLIK` | 409 | Transisi status atau pembayaran tidak diizinkan (lihat bagian 2) |
 | `HARGA_BERUBAH` | 409 | Harga server berbeda dengan `hargaDiharapkan`. `rincian` berisi harga terbaru |
 | `SERVER` | 500 | Galat tak terduga. Detail hanya di log server |
@@ -140,7 +140,8 @@ Express mengubah `snake_case` (DB) menjadi `camelCase` (JSON). Frontend hanya me
 | `POST /menu`, `PATCH /menu/:id` | — | ✓ | Inti |
 | `POST /pengeluaran`, `GET /pengeluaran` | — | ✓ | Inti |
 | `GET /rekap` | — | ✓ | Inti |
-| `GET /pesanan/:id` (publik ringkas) | ✓ | ✓ (lengkap) | Lanjutan |
+| `GET /pesanan/:id` (publik, ringkas) | ✓ | — | Lanjutan |
+| `GET /pesanan/:id` (pemilik, lengkap) | — | ✓ | Inti (dipakai `AdminOrderDetailPage` di M2) |
 | `DELETE /menu/:id` | — | ✓ | Lanjutan |
 | `PATCH /pengeluaran/:id`, `DELETE /pengeluaran/:id` | — | ✓ | Lanjutan |
 | `GET /rekap/menu-terlaris` | — | ✓ | Lanjutan |
@@ -200,7 +201,8 @@ Satu item seperti di atas. `404 TIDAK_DITEMUKAN` bila tidak ada.
 
 **Aturan:**
 - `items` minimal satu baris. `jumlah` bilangan bulat **1–50** (usulan).
-- `menuId` harus ada di tabel `menu`.
+- `menuId` yang tidak ada di tabel `menu` → `400 MASUKAN_TIDAK_SAH` dengan `rincian` (mis. `{ "field": "items.0.menuId", "pesan": "Menu tidak dikenal." }`).
+  - **Mengapa bukan 404:** 404 berarti resource di URL tidak ada. Di sini URL-nya benar, dan yang salah adalah isi body, sehingga 400 dengan `rincian` lebih tepat dan menunjuk baris yang salah.
 - Item dengan `tersedia = false` → `400 MENU_HABIS`.
 - `nomorMeja` boleh tidak dikirim. Pesanan tetap tersimpan dengan `nomorMeja: null`. Pemilik melihat "tanpa meja" di daftar.
 - Nama dan harga dari keranjang frontend **tidak dipakai**. Server mengambil dari tabel `menu`.
@@ -326,7 +328,7 @@ Validasi (sesuai form admin): `nama` 2–60 karakter, `harga` bilangan bulat 0�
 // 201 — tersimpan. Nominal ≤ 0, bukan angka, atau tanggal tidak valid → 400 dengan rincian.
 ```
 
-Tanggal tidak boleh di masa depan. Pemeriksaan dilakukan di Zod, bukan di database (lihat skema 3.5).
+Batas pengeluaran: `nominal` bilangan bulat **1 – 100.000.000** (Rp100 juta). Batas ini sama dengan `CHECK` di database (skema 3.5). Tanggal tidak boleh di masa depan. Pemeriksaan tanggal dilakukan di Zod, bukan di database (lihat skema 3.5).
 
 ### 5.7 Rekap dan dasbor
 

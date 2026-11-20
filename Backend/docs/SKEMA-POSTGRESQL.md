@@ -8,7 +8,7 @@
 
 ---
 
-## 0. Ringkasan perubahan dari versi 1
+## 0. Ringkasan perubahan dari versi 2
 
 | Perubahan | Alasan |
 |---|---|
@@ -141,7 +141,17 @@ CREATE TABLE pesanan (
 );
 ```
 
-> **Catatan nomor pesanan:** sekuens tidak ikut dibatalkan saat transaksi gagal atau `INSERT` ditolak. Akibatnya nomor bisa melompat (misalnya `BE-0005` lalu `BE-0007`). Ini wajar dan **tidak** menandakan pesanan hilang. Nomor dipakai sebagai label, bukan penghitung transaksi. Rekap selalu dihitung dari tabel, tidak dari nomor.
+> **Catatan nomor pesanan (celah pada nomor):** nilai `DEFAULT` dari sekuens dievaluasi setiap kali `INSERT` dicoba, walaupun baris akhirnya dilewati oleh `ON CONFLICT DO NOTHING` atau transaksi dibatalkan. Akibatnya ada dua penyebab celah:
+>
+> | Penyebab | Menghabiskan nomor? | Contoh |
+> |---|---|---|
+> | Permintaan ulang yang sudah tersimpan (langkah 0 di bagian 4.1) | **tidak**, karena `INSERT` tidak pernah dicoba | `BE-0001` dikirim ulang → tetap `BE-0001` |
+> | Dua permintaan identik bersamaan, yang kalah di `ON CONFLICT` | **ya**, satu nomor terbuang | pemenang `BE-0002`, yang kalah memakan `BE-0003` |
+> | Insert gagal karena validasi database atau transaksi dibatalkan | **ya** | `BE-0005` dibuang, pesanan berikutnya `BE-0006` |
+>
+> Celah hanya muncul pada dua kasus terakhir, dan jumlahnya sangat kecil. Celah **tidak** berarti pesanan hilang. Nomor adalah label, bukan penghitung. Rekap dihitung dari tabel, tidak dari nomor. Pemilik yang melihat `BE-0003` hilang boleh diberi tahu bahwa itu percobaan yang gagal, bukan pesanan yang dihapus.
+>
+> Perilaku ini sudah diuji di PostgreSQL 16: replay tidak menaikkan sekuens (`last_value` tetap 1), sedangkan dua `ON CONFLICT` yang kalah menaikkannya dari 1 ke 3.
 
 ### 3.4 `item_pesanan`
 
@@ -257,7 +267,7 @@ Bila ada baris → balas `200` dengan pesanan tersebut. Isi permintaan tidak div
 **Langkah 1–6 — dalam satu transaksi (`BEGIN … COMMIT`):**
 
 1. Validasi masukan dengan Zod, sebelum transaksi dibuka.
-2. `SELECT id, nama, harga, tersedia FROM menu WHERE id = ANY($1) FOR SHARE`. Kunci baris menu agar harga tidak berubah di tengah transaksi. Menu tidak ditemukan atau `tersedia = false` → `ROLLBACK`, lalu balas `TIDAK_DITEMUKAN` atau `MENU_HABIS`.
+2. `SELECT id, nama, harga, tersedia FROM menu WHERE id = ANY($1) FOR SHARE`. Kunci baris menu agar harga tidak berubah di tengah transaksi. Bila ada `menuId` yang tidak ada di tabel → `ROLLBACK`, lalu balas `400 MASUKAN_TIDAK_SAH` dengan `rincian` yang menunjuk `items.N.menuId`. Bila `tersedia = false` → `ROLLBACK`, lalu balas `400 MENU_HABIS`. `404` tidak dipakai di sini karena URL-nya benar, yang salah isi body (lihat KONTRAK-API.md bagian 4.3).
 3. Bila `hargaDiharapkan` dikirim (Lanjutan) dan berbeda dengan `harga` → `ROLLBACK`, lalu balas `HARGA_BERUBAH` dengan harga terkini.
 4. Hitung `total_harga` dari `harga` yang sudah dikunci.
 5. Simpan pesanan dengan **`ON CONFLICT`**:
