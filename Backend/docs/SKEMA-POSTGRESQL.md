@@ -569,4 +569,28 @@ UPDATE 1
 | Cek pembayaran di `WHERE` mencegah pembatalan tanpa galat database | `UPDATE 0` pada status `batal` ketika pembayaran `dibayar` |
 | Pembatalan berhasil setelah pembayaran dikembalikan ke `belum` | `UPDATE 1`, status `batal` |
 
-**Batas uji:** `ON CONFLICT` diuji dengan dua `INSERT` berurutan, yang meniru kekalahan. Balapan sungguhan dengan dua koneksi belum diuji dan belum diklaim.
+### A.4 Batas uji dan rencana uji M2
+
+**Lampiran A hanya menguji database** (DDL, constraint, sekuens, dan `UPDATE` dengan kondisi `WHERE`). **Logika aplikasi** di Express belum diuji sama sekali. Yang belum diuji:
+- `ON CONFLICT` diuji dengan dua `INSERT` berurutan yang meniru kekalahan. **Balapan sungguhan dengan dua koneksi belum diuji.**
+- Langkah 0 (cek `id_permintaan` sebelum transaksi) dan pembacaan ulang setelah `RETURNING` kosong.
+- Pemetaan galat database ke balasan HTTP (`23514` → `409 KONFLIK`).
+
+Rencana uji untuk M2, dijalankan terhadap Express dan PostgreSQL sungguhan:
+
+| # | Kasus | Masukan | Hasil yang diharapkan |
+|---|---|---|---|
+| T-A1 | Permintaan ulang yang sudah tersimpan (langkah 0) | `idPermintaan` yang sudah ada, isi berbeda | `200` dengan pesanan lama; tidak ada baris baru; isi permintaan tidak divalidasi ulang |
+| T-A2 | Dua permintaan identik **bersamaan** (`Promise.all`, dua koneksi pool) | `idPermintaan` sama, dikirim serentak | satu baris di `pesanan`; keduanya `200` atau satu `201` dan satu `200`; tanpa galat |
+| T-A3 | `RETURNING` kosong pada `ON CONFLICT` | sama dengan T-A2, dari sisi yang kalah | server membaca pemenang dan membalas `200` |
+| T-A4 | Status diubah ke nilai yang sama | `status = masuk` untuk pesanan `masuk` | `200` tanpa perubahan |
+| T-A5 | Transisi tidak sah | `selesai` → `diproses` | `409 KONFLIK` dengan pesan transisi |
+| T-A6 | Batal saat sudah dibayar | `status = batal` untuk pesanan `dibayar` | `409 KONFLIK` dengan pesan "Pesanan sudah dibayar…" (tanpa galat database) |
+| T-A7 | Balapan batal vs bayar | dua permintaan bersamaan: satu `batal`, satu `dibayar` | salah satu saja berhasil; pesanan tidak pernah `batal` dan `dibayar` bersamaan |
+| T-A8 | Pembayaran dengan nilai lama yang salah | `pembayaranLama` tidak cocok | `200` bila sudah berada di nilai yang diminta, `409` bila tidak |
+| T-A9 | Pemetaan `23514` | `UPDATE` yang melanggar CHECK | `409 KONFLIK`, bukan `500` |
+| T-A10 | `menuId` tidak dikenal | `menuId` acak di body | `400 MASUKAN_TIDAK_SAH` dengan `rincian` menunjuk `items.N.menuId` |
+| T-A11 | Menu habis | `tersedia = false` | `400 MENU_HABIS` dengan `rincian` berisi `menuId` |
+| T-A12 | Harga berubah | `hargaDiharapkan` berbeda dengan `harga` | `409 HARGA_BERUBAH` dengan harga terkini; pesanan tidak tersimpan |
+
+Hasil tiap kasus dicatat di Google Sheets bersama (skenario, hasil yang diharapkan, hasil aktual, status, bukti) sesuai Project Plan bagian F.

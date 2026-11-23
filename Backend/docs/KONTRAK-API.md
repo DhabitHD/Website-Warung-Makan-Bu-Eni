@@ -221,7 +221,7 @@ Satu item seperti di atas. `404 TIDAK_DITEMUKAN` bila tidak ada.
 
 **Idempotensi.** Bila `idPermintaan` yang sama dikirim lagi (retry jaringan, refresh, atau tombol ditekan dua kali), server mengembalikan pesanan yang sudah ada dengan **`200`**, tanpa membuat pesanan baru dan tanpa memvalidasi ulang isi permintaan.
 
-**Dua permintaan identik bersamaan.** Keduanya bisa lolos pemeriksaan awal. Yang kalah akan gagal di `UNIQUE`, dan server **tidak** membalas galat. Server mengambil pesanan yang menang dan membalasnya dengan `200`. Rinciannya di `SKEMA-POSTGRESQL.md` bagian 4.1.
+**Dua permintaan identik bersamaan.** Keduanya bisa lolos pemeriksaan awal. Yang kalah dilewati oleh `ON CONFLICT`, lalu server membaca pesanan yang menang dan membalas dengan `200`. Server **tidak** membalas galat. Rinciannya di `SKEMA-POSTGRESQL.md` bagian 4.1.
 
 **Nomor pesanan bisa melompat.** Bila ada permintaan yang kalah dalam balapan atau insert yang gagal, nomor `id` ikut terpakai dan tidak dikembalikan. Akibatnya nomor bisa lompat, misalnya `BE-0002` lalu `BE-0004`. Ini bukan pesanan yang hilang. Rekap dihitung dari data, bukan dari nomor (lihat `SKEMA-POSTGRESQL.md` bagian 3.3).
 
@@ -293,7 +293,7 @@ Pembaruan memakai **kunci optimistik**, dan untuk status `batal` ditambah cek pe
 }
 ```
 
-Constraint `pesanan_batal_tidak_dibayar` di database tetap menjadi penjaga terakhir. Bila dua permintaan bersamaan lolos pemeriksaan, constraint itu menolaknya, dan galatnya dipetakan ke `409 KONFLIK`.
+Constraint `pesanan_batal_tidak_dibayar` di database tetap menjadi penjaga terakhir. Bila dua permintaan bersamaan lolos pemeriksaan, constraint itu menolaknya. Galat database `23514` (CHECK violation) dipetakan ke `409 KONFLIK`.
 
 ### 5.4 `PATCH /pesanan/:id/pembayaran` (Inti)
 
