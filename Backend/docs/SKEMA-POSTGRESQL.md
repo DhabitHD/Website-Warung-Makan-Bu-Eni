@@ -131,7 +131,7 @@ CREATE TABLE pesanan (
 >
 > Celah hanya muncul pada dua kasus terakhir, dan jumlahnya sangat kecil. Celah **tidak** berarti pesanan hilang. Nomor adalah label, bukan penghitung. Rekap dihitung dari tabel, tidak dari nomor. Pemilik yang melihat `BE-0003` hilang boleh diberi tahu bahwa itu percobaan yang gagal, bukan pesanan yang dihapus.
 >
-> Bukti uji ada di **Lampiran A**: replay tidak menaikkan sekuens (`nomor_terakhir` tetap 1), sedangkan satu permintaan yang kalah di `ON CONFLICT` menaikkannya dari 1 ke 3 (pemenang `BE-0002`, yang kalah `BE-0003`). Uji itu berurutan, bukan balapan sungguhan. Ia meniru kekalahan dengan dua `INSERT` berturut-turut. Balapan sungguhan dengan dua koneksi belum diuji.
+> Bukti uji ada di **Lampiran A** (`db/tests/03_sekuens_idempotensi.sql`): replay tidak menaikkan sekuens, dan satu permintaan yang kalah di `ON CONFLICT` memakan satu nomor. Uji itu berurutan, bukan balapan sungguhan. Ia meniru kekalahan dengan dua `INSERT` berturut-turut. Balapan sungguhan dengan dua koneksi belum diuji.
 
 ### 3.4 `item_pesanan`
 
@@ -450,124 +450,111 @@ Setiap perubahan skema sesudah ini dibuat sebagai berkas migrasi baru, tidak men
 
 ---
 
-## Lampiran A — Bukti uji sekuens dan pembatalan
+## Lampiran A — Bukti uji skema
 
-**Prasyarat:** DDL bagian 3 sudah dijalankan pada PostgreSQL 16 (`postgres:16-alpine`), database kosong.
-**Cara menjalankan:** `psql -U postgres -d warung -f bukti.sql`
+Uji dijalankan dengan `Backend/db/test.sh` pada **PostgreSQL 16.16** (image `postgres:16-alpine`), container bersih yang dinyalakan khusus untuk run ini. Tanggal mesin saat run: **23 Nov 2026, 13:21 WIB** (lihat baris `== Tanggal mesin` di A.2). Output di A.2 disalin langsung dari run tersebut, tanpa diedit.
 
-### A.1 SQL
+### A.1 Cara mengulang
 
-```sql
-INSERT INTO menu (id,nama,kategori,harga,foto) VALUES ('lauk-05','Ayam Goreng','lauk',9500,'a.jpg'),('sayur-07','Sop Bening','sayur',5000,'s.jpg');
+Prasyarat: Docker. Dari folder `Backend/`:
 
-\echo === BUKTI A: nomor urut ===
-INSERT INTO pesanan (id_permintaan,nama_pelanggan,nomor_meja,total_harga) VALUES ('aaaaaaaa-0000-4000-8000-000000000001','Toni','A01',14500) RETURNING id;
-\echo -- replay: hanya SELECT (langkah 0), tidak ada INSERT
-SELECT id FROM pesanan WHERE id_permintaan='aaaaaaaa-0000-4000-8000-000000000001';
-SELECT last_value AS nomor_terakhir FROM pesanan_nomor_seq;
-\echo -- permintaan baru identik dua kali berurutan: yang pertama menang, yang kedua kalah di ON CONFLICT
-INSERT INTO pesanan (id_permintaan,nama_pelanggan,nomor_meja,total_harga) VALUES ('bbbbbbbb-0000-4000-8000-000000000002','Sari','A01',14500) ON CONFLICT (id_permintaan) DO NOTHING RETURNING id;
-INSERT INTO pesanan (id_permintaan,nama_pelanggan,nomor_meja,total_harga) VALUES ('bbbbbbbb-0000-4000-8000-000000000002','Sari','A01',14500) ON CONFLICT (id_permintaan) DO NOTHING RETURNING id;
-SELECT last_value AS nomor_terakhir FROM pesanan_nomor_seq;
-SELECT count(*) AS pesanan_dengan_id_permintaan_ini FROM pesanan WHERE id_permintaan='bbbbbbbb-0000-4000-8000-000000000002';
-
-\echo === BUKTI B: batal pesanan yang sudah dibayar ===
-INSERT INTO pesanan (id_permintaan,nama_pelanggan,nomor_meja,total_harga) VALUES ('cccccccc-0000-4000-8000-000000000003','Budi','B02',14500) RETURNING id \gset
-UPDATE pesanan SET pembayaran='dibayar', dibayar_pada=now() WHERE id=:'id' AND pembayaran='belum' RETURNING id, pembayaran;
-\echo -- status ke batal tanpa cek pembayaran (rancangan lama): database yang menolak
-UPDATE pesanan SET status='batal' WHERE id=:'id' AND status='masuk' RETURNING id;
-\echo -- status ke batal dengan cek pembayaran (rancangan baru): 0 baris, tanpa galat database
-UPDATE pesanan SET status='batal' WHERE id=:'id' AND status='masuk' AND pembayaran<>'dibayar' RETURNING id;
-\echo -- setelah pembayaran dikembalikan ke belum, pembatalan berhasil
-UPDATE pesanan SET pembayaran='belum', dibayar_pada=NULL WHERE id=:'id' AND pembayaran='dibayar' RETURNING id;
-UPDATE pesanan SET status='batal' WHERE id=:'id' AND status='masuk' AND pembayaran<>'dibayar' RETURNING id, status;
+```bash
+./db/test.sh
 ```
 
-### A.2 Output aktual
+Sebelum Docker dinyalakan, skrip memeriksa bahwa `db/schema.sql` sama dengan DDL di bagian 3 dokumen ini. Jika berbeda, skrip berhenti dengan kode 4. Lalu skrip menjalankan berurutan: `db/schema.sql` → `db/fixtures/seed.sql` → `db/fixtures/helpers.sql` → setiap berkas di `db/tests/`. Setiap berkas tes berjalan dalam transaksi yang di-`ROLLBACK`. Skrip berhenti di galat pertama dan keluar dengan kode non-nol. Jika lulus semua, kode keluarnya `0`.
+
+Berkas terkait di repo:
+
+| Berkas | Isi |
+|---|---|
+| `db/schema.sql` | DDL bagian 3 (sekuens, 5 tabel, 8 indeks) |
+| `db/fixtures/seed.sql` | 6 menu dari katalog, 5 pesanan (termasuk uji dan batal), item, pengeluaran |
+| `db/fixtures/helpers.sql` | fungsi `uji_gagal(stmt, sqlstate, label)` |
+| `db/tests/01_constraint_menolak.sql` | 22 kasus yang harus ditolak constraint |
+| `db/tests/02_positif.sql` | 8 kasus data sah dan nilai default |
+| `db/tests/03_sekuens_idempotensi.sql` | 3 kasus sekuens dan `ON CONFLICT` |
+| `db/tests/04_rekap.sql` | 6 kasus rekap dan batas tanggal WIB |
+| `db/tests/05_status_pembayaran.sql` | 6 kasus kunci optimistik status dan pembayaran |
+
+### A.2 Hasil run
 
 ```text
-INSERT 0 2
-=== BUKTI A: nomor urut ===
-   id    
----------
- BE-0001
-(1 row)
+== DDL di dokumen dan schema.sql sama
+== Menyalakan PostgreSQL (postgres:16-alpine)
+== Versi: PostgreSQL 16.16 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+== Tanggal mesin: 2026-11-23 13:21:59 WIB
+== Skema
+== Data contoh
+== Pembantu
+== Tes: 01_constraint_menolak.sql
+psql:/db/tests/01_constraint_menolak.sql:10: NOTICE:  PASS: dibayar tanpa dibayar_pada
+psql:/db/tests/01_constraint_menolak.sql:13: NOTICE:  PASS: status batal tetapi sudah dibayar
+psql:/db/tests/01_constraint_menolak.sql:16: NOTICE:  PASS: id_permintaan duplikat
+psql:/db/tests/01_constraint_menolak.sql:19: NOTICE:  PASS: nomor_meja berisi spasi dan tanda seru
+psql:/db/tests/01_constraint_menolak.sql:22: NOTICE:  PASS: total_harga negatif
+psql:/db/tests/01_constraint_menolak.sql:25: NOTICE:  PASS: status di luar daftar
+psql:/db/tests/01_constraint_menolak.sql:28: NOTICE:  PASS: nama pelanggan kurang dari 2 karakter
+psql:/db/tests/01_constraint_menolak.sql:32: NOTICE:  PASS: jumlah item nol
+psql:/db/tests/01_constraint_menolak.sql:35: NOTICE:  PASS: jumlah item di atas 50
+psql:/db/tests/01_constraint_menolak.sql:38: NOTICE:  PASS: item untuk pesanan yang tidak ada
+psql:/db/tests/01_constraint_menolak.sql:42: NOTICE:  PASS: kategori selain lauk/sayur
+psql:/db/tests/01_constraint_menolak.sql:45: NOTICE:  PASS: harga menu negatif
+psql:/db/tests/01_constraint_menolak.sql:48: NOTICE:  PASS: harga menu di atas 10 juta
+psql:/db/tests/01_constraint_menolak.sql:51: NOTICE:  PASS: nama menu kurang dari 2 karakter
+psql:/db/tests/01_constraint_menolak.sql:55: NOTICE:  PASS: pengeluaran nominal nol
+psql:/db/tests/01_constraint_menolak.sql:58: NOTICE:  PASS: pengeluaran nominal negatif
+psql:/db/tests/01_constraint_menolak.sql:61: NOTICE:  PASS: pengeluaran di atas Rp100 juta
+psql:/db/tests/01_constraint_menolak.sql:64: NOTICE:  PASS: pengeluaran tanpa tanggal
+psql:/db/tests/01_constraint_menolak.sql:68: NOTICE:  PASS: rekomendasi gagal tetapi punya hasil
+psql:/db/tests/01_constraint_menolak.sql:71: NOTICE:  PASS: rekomendasi berhasil tanpa hasil
+psql:/db/tests/01_constraint_menolak.sql:74: NOTICE:  PASS: tingkat pedas di luar 0-2
+psql:/db/tests/01_constraint_menolak.sql:77: NOTICE:  PASS: anggaran nol
+== Tes: 02_positif.sql
+psql:/db/tests/02_positif.sql:14: NOTICE:  PASS: data contoh termuat (6 menu, 5 pesanan)
+psql:/db/tests/02_positif.sql:27: NOTICE:  PASS: subtotal item sama dengan total pesanan (14500)
+psql:/db/tests/02_positif.sql:32: NOTICE:  PASS: pesanan tanpa nomor meja diterima
+psql:/db/tests/02_positif.sql:37: NOTICE:  PASS: pesanan batal berstatus belum dibayar diterima
+psql:/db/tests/02_positif.sql:50: NOTICE:  PASS: nilai default pesanan (masuk, belum, data_uji false)
+psql:/db/tests/02_positif.sql:59: NOTICE:  PASS: menu baru tersedia secara default, harga 0 diterima
+psql:/db/tests/02_positif.sql:66: NOTICE:  PASS: riwayat berhasil dan gagal diterima
+psql:/db/tests/02_positif.sql:70: NOTICE:  PASS: pengeluaran nominal 1 (batas bawah) diterima
+== Tes: 03_sekuens_idempotensi.sql
+psql:/db/tests/03_sekuens_idempotensi.sql:30: NOTICE:  PASS: replay (langkah 0) mengembalikan id yang sama tanpa menaikkan nomor
+psql:/db/tests/03_sekuens_idempotensi.sql:60: NOTICE:  PASS: ON CONFLICT menghasilkan satu pesanan, yang kalah memakan satu nomor
+psql:/db/tests/03_sekuens_idempotensi.sql:71: NOTICE:  PASS: format id pesanan sesuai BE-NNNN (BE-0019)
+== Tes: 04_rekap.sql
+psql:/db/tests/04_rekap.sql:40: NOTICE:  PASS: rekap Desember = pemasukan 22000, pengeluaran 5000, saldo 17000 (sesuai plan)
+psql:/db/tests/04_rekap.sql:40: NOTICE:  PASS: pesanan dibayar 2, pesanan masuk 3 (belum dibayar dan batal dikecualikan)
+psql:/db/tests/04_rekap.sql:60: NOTICE:  PASS: menu terlaris cocok dengan transaksi sumber (omzet total 22000)
+psql:/db/tests/04_rekap.sql:81: NOTICE:  PASS: periode tanpa transaksi mengembalikan nol
+psql:/db/tests/04_rekap.sql:94: NOTICE:  PASS: pembayaran 31 Des 23:30 WIB tidak masuk periode yang berakhir 30 Des
+psql:/db/tests/04_rekap.sql:114: NOTICE:  PASS: batas tengah malam WIB benar (1 Jan 00:30 WIB masuk Januari, bukan Desember)
+== Tes: 05_status_pembayaran.sql
+psql:/db/tests/05_status_pembayaran.sql:16: NOTICE:  PASS: pembayaran dengan nilai lama salah tidak mengubah apa pun (0 baris)
+psql:/db/tests/05_status_pembayaran.sql:28: NOTICE:  PASS: pembayaran dengan nilai lama benar diterima dan dibayar_pada terisi
+psql:/db/tests/05_status_pembayaran.sql:40: NOTICE:  PASS: pembatalan pesanan yang sudah dibayar ditahan di WHERE (0 baris)
+psql:/db/tests/05_status_pembayaran.sql:47: NOTICE:  PASS: pembatalan tanpa cek pembayaran ditolak constraint (23514)
+psql:/db/tests/05_status_pembayaran.sql:65: NOTICE:  PASS: setelah pembayaran dikembalikan ke belum, pesanan bisa dibatalkan
+psql:/db/tests/05_status_pembayaran.sql:73: NOTICE:  PASS: pesanan batal tidak boleh ditandai dibayar (23514)
 
-INSERT 0 1
--- replay: hanya SELECT (langkah 0), tidak ada INSERT
-   id    
----------
- BE-0001
-(1 row)
-
- nomor_terakhir 
-----------------
-              1
-(1 row)
-
--- permintaan baru identik dua kali berurutan: yang pertama menang, yang kedua kalah di ON CONFLICT
-   id    
----------
- BE-0002
-(1 row)
-
-INSERT 0 1
- id 
-----
-(0 rows)
-
-INSERT 0 0
- nomor_terakhir 
-----------------
-              3
-(1 row)
-
- pesanan_dengan_id_permintaan_ini 
-----------------------------------
-                                1
-(1 row)
-
-=== BUKTI B: batal pesanan yang sudah dibayar ===
-INSERT 0 1
-   id    | pembayaran 
----------+------------
- BE-0004 | dibayar
-(1 row)
-
-UPDATE 1
--- status ke batal tanpa cek pembayaran (rancangan lama): database yang menolak
-psql:/bukti.sql:18: ERROR:  new row for relation "pesanan" violates check constraint "pesanan_batal_tidak_dibayar"
-DETAIL:  Failing row contains (BE-0004, cccccccc-0000-4000-8000-000000000003, Budi, B02, null, batal, dibayar, 14500, f, 2026-11-20 10:31:50.506437+00, 2026-11-20 10:31:50.507615+00, 2026-11-20 10:31:50.506437+00).
--- status ke batal dengan cek pembayaran (rancangan baru): 0 baris, tanpa galat database
- id 
-----
-(0 rows)
-
-UPDATE 0
--- setelah pembayaran dikembalikan ke belum, pembatalan berhasil
-   id    
----------
- BE-0004
-(1 row)
-
-UPDATE 1
-   id    | status 
----------+--------
- BE-0004 | batal
-(1 row)
-
-UPDATE 1
+SEMUA TES LULUS
 ```
+
+Negatif kontrol: constraint `pesanan_batal_tidak_dibayar` sengaja dilepas dari salinan skema. Tes 01 gagal dengan `GAGAL: status batal tetapi sudah dibayar — SQLSTATE P0001, diharapkan 23514` dan skrip keluar non-nol. Ini membuktikan tes memang bisa gagal.
 
 ### A.3 Yang dibuktikan
 
-| Klaim | Bukti |
+| Klaim | Bukti (berkas dan jumlah kasus) |
 |---|---|
-| Replay yang dicegat `SELECT` tidak menaikkan nomor | `nomor_terakhir` tetap `1` setelah replay |
-| Satu permintaan yang kalah di `ON CONFLICT` memakan nomor | pemenang `BE-0002`, `nomor_terakhir` naik ke `3`, hanya satu pesanan dengan id permintaan itu |
-| Pesanan dibayar tidak bisa dibatalkan oleh database | `ERROR: … pesanan_batal_tidak_dibayar` |
-| Cek pembayaran di `WHERE` mencegah pembatalan tanpa galat database | `UPDATE 0` pada status `batal` ketika pembayaran `dibayar` |
-| Pembatalan berhasil setelah pembayaran dikembalikan ke `belum` | `UPDATE 1`, status `batal` |
+| Constraint menolak 22 jenis data salah (status, pembayaran, nomor meja, jumlah, harga, pengeluaran, rekomendasi, FK, duplikat) | `01_constraint_menolak.sql`: 22 PASS dengan SQLSTATE yang tepat (23514, 23505, 23503, 23502) |
+| Data sah diterima, default bekerja, subtotal = total | `02_positif.sql`: 8 PASS |
+| Replay tidak menaikkan nomor; `ON CONFLICT` menghasilkan satu pesanan; yang kalah memakan satu nomor | `03_sekuens_idempotensi.sql`: 3 PASS. Uji berurutan, bukan balapan sungguhan |
+| Rekap Desember = pemasukan 22.000, pengeluaran 5.000, saldo 17.000; menu terlaris cocok dengan pemasukan | `04_rekap.sql`: 6 PASS |
+| Periode kosong mengembalikan nol; batas WIB benar (31 Des 23:30 dan 1 Jan 00:30) | `04_rekap.sql`: 2 PASS |
+| Pembayaran dengan nilai lama salah tidak mengubah apa pun; pembatalan pesanan dibayar ditahan di `WHERE`; pembatalan tanpa cek ditolak `23514` | `05_status_pembayaran.sql`: 6 PASS |
+
+**Yang tidak dibuktikan oleh Lampiran ini:** logika Express (langkah 0, pembacaan ulang setelah `RETURNING` kosong, pemetaan `23514` ke `409`) dan balapan dengan dua koneksi. Itu rencana uji M2 di A.4.
 
 ### A.4 Batas uji dan rencana uji M2
 
