@@ -9,6 +9,7 @@ import { useCartStore } from '@/features/cart/store/cart-store'
 import { cn } from '@/lib/utils'
 import type { CartItem } from '@/types/cart'
 import { checkoutSchema, type CheckoutFormValues } from '../schemas/checkout'
+import { pesanGalatValidasi } from '../schemas/order'
 import { kirimPesanan } from '../services/order.service'
 
 interface CheckoutFormProps {
@@ -159,9 +160,7 @@ export function CheckoutForm({ items, nomorMejaAwal }: CheckoutFormProps) {
           role="alert"
           className="mt-5 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
         >
-          {mutasi.error instanceof Error
-            ? mutasi.error.message
-            : 'Pesanan gagal dikirim. Coba lagi.'}
+          {pesanGalatValidasi(mutasi.error)}
         </div>
       )}
 

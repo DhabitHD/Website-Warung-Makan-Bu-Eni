@@ -1,5 +1,6 @@
 import { useMenuStore } from '@/features/menu/store/menu-store'
 import { transisiStatusDiizinkan } from '../lib/pesanan'
+import { orderPayloadSchema } from '../schemas/order'
 import { useOrderStore } from '../store/order-store'
 import type {
   ItemPesanan,
@@ -42,11 +43,9 @@ function cariPesanan(id: string): OrderResult {
  * pemanggilnya (CheckoutForm).
  */
 export async function kirimPesanan(payload: OrderPayload): Promise<OrderResult> {
+  // Validasi klien memakai Zod yang sama dengan aturan kontrak API.
+  orderPayloadSchema.parse(payload)
   await tunggu(JEDA_KIRIM_MS)
-
-  if (payload.items.length === 0) {
-    throw new Error('Keranjang masih kosong. Tambahkan menu dulu, ya.')
-  }
 
   const daftar = useOrderStore.getState().pesanan
   const sudahAda = daftar.find((item) => item.idPermintaan === payload.idPermintaan)
@@ -63,9 +62,6 @@ export async function kirimPesanan(payload: OrderPayload): Promise<OrderResult> 
     }
     if (ditemukan.tersedia === false) {
       throw new Error(`${ditemukan.nama} sedang habis. Silakan pilih menu lain.`)
-    }
-    if (!Number.isInteger(item.jumlah) || item.jumlah < 1 || item.jumlah > 50) {
-      throw new Error(`Jumlah ${ditemukan.nama} harus antara 1 dan 50.`)
     }
 
     return {
