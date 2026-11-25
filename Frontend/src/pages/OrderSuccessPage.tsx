@@ -3,22 +3,20 @@ import { Link, useLocation } from 'react-router-dom'
 import { Container } from '@/components/layout/Container'
 import { PageShell } from '@/components/layout/PageShell'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { Badge } from '@/components/ui/badge'
+import {
+  formatWaktu,
+  labelPembayaran,
+  labelStatusPesanan,
+  varianPembayaran,
+  varianStatusPesanan,
+} from '@/features/checkout/lib/pesanan'
 import { bacaPesananTerakhir } from '@/features/checkout/services/order.service'
 import type { OrderResult } from '@/features/checkout/types'
 import { formatRupiah } from '@/lib/currency'
 
 interface OrderSuccessState {
   pesanan?: OrderResult
-}
-
-function formatWaktu(iso: string): string {
-  const waktu = new Date(iso)
-  if (Number.isNaN(waktu.getTime())) return '—'
-
-  return new Intl.DateTimeFormat('id-ID', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(waktu)
 }
 
 export function OrderSuccessPage() {
@@ -81,10 +79,14 @@ export function OrderSuccessPage() {
                 <p className="text-xs text-muted-foreground">Nomor pesanan</p>
                 <p className="mt-1 font-display text-2xl font-semibold text-brand">{pesanan.id}</p>
               </div>
-              <span className="inline-flex items-center gap-2 rounded-full bg-brand/10 px-3 py-1 text-xs font-semibold text-brand">
-                <span className="size-1.5 rounded-full bg-brand" aria-hidden="true" />
-                Menunggu konfirmasi warung
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={varianStatusPesanan(pesanan.status)}>
+                  {labelStatusPesanan(pesanan.status)}
+                </Badge>
+                <Badge variant={varianPembayaran(pesanan.pembayaran)}>
+                  {labelPembayaran(pesanan.pembayaran)}
+                </Badge>
+              </div>
             </div>
 
             <dl className="grid gap-4 border-b border-border py-5 text-sm sm:grid-cols-2">
@@ -94,7 +96,9 @@ export function OrderSuccessPage() {
               </div>
               <div>
                 <dt className="text-xs text-muted-foreground">Nomor meja</dt>
-                <dd className="mt-1 font-medium text-ink">Meja {pesanan.nomorMeja}</dd>
+                <dd className="mt-1 font-medium text-ink">
+                  {pesanan.nomorMeja ? `Meja ${pesanan.nomorMeja}` : 'Tanpa meja'}
+                </dd>
               </div>
               {pesanan.catatan && (
                 <div className="sm:col-span-2">
@@ -107,16 +111,16 @@ export function OrderSuccessPage() {
             <ul className="divide-y divide-border">
               {pesanan.items.map((item) => (
                 <li
-                  key={item.itemId}
+                  key={item.menuId}
                   className="flex items-start justify-between gap-3 py-3 text-sm"
                 >
                   <div>
                     <p className="font-medium text-ink">{item.nama}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{item.jumlah} porsi</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {item.jumlah} × Rp{formatRupiah(item.harga)}
+                    </p>
                   </div>
-                  <p className="font-medium text-ink">
-                    Rp{formatRupiah(item.harga * item.jumlah)}
-                  </p>
+                  <p className="font-medium text-ink">Rp{formatRupiah(item.subtotal)}</p>
                 </li>
               ))}
             </ul>
