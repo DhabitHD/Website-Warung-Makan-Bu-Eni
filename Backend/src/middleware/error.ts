@@ -1,4 +1,5 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express'
+import { GalatApi, dariGalatDb } from '../lib/galat'
 
 /** Penangkap rute yang tidak dikenal (404). */
 export const tidakDitemukan: RequestHandler = (req, res) => {
@@ -11,13 +12,28 @@ export const tidakDitemukan: RequestHandler = (req, res) => {
 }
 
 /**
- * Penangkap galat server.
- * Galat dari klien (JSON rusak, body terlalu besar) dibalas 400/413 dengan kode
- * MASUKAN_TIDAK_SAH. Detail galat internal tidak dibocorkan ke klien.
+ * Penangkap galat terpusat. Urutan: galat API → galat constraint database →
+ * galat klien dari body parser (400/413) → galat tak terduga (500, tanpa detail ke klien).
  */
 export const penanganGalat: ErrorRequestHandler = (err, _req, res, _next) => {
-  const status = typeof err?.status === 'number' ? err.status : 500
+  if (err instanceof GalatApi) {
+    res.status(err.status).json({
+      galat: {
+        kode: err.kode,
+        pesan: err.message,
+        ...(err.rincian ? { rincian: err.rincian } : {}),
+      },
+    })
+    return
+  }
 
+  const galatDb = dariGalatDb(err)
+  if (galatDb) {
+    res.status(galatDb.status).json({ galat: { kode: galatDb.kode, pesan: galatDb.message } })
+    return
+  }
+
+  const status = typeof err?.status === 'number' ? err.status : 500
   if (status >= 400 && status < 500) {
     res.status(status).json({
       galat: {
