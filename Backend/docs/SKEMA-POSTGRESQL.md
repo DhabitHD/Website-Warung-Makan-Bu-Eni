@@ -562,26 +562,22 @@ Negatif kontrol: constraint `pesanan_batal_tidak_dibayar` sengaja dilepas dari s
 
 ### A.4 Batas uji dan rencana uji M2
 
-**Lampiran A hanya menguji database** (DDL, constraint, sekuens, dan `UPDATE` dengan kondisi `WHERE`). **Logika aplikasi** di Express belum diuji sama sekali. Yang belum diuji:
-- `ON CONFLICT` diuji dengan dua `INSERT` berurutan yang meniru kekalahan. **Balapan sungguhan dengan dua koneksi belum diuji.**
-- Langkah 0 (cek `id_permintaan` sebelum transaksi) dan pembacaan ulang setelah `RETURNING` kosong.
-- Pemetaan galat database ke balasan HTTP (`23514` → `409 KONFLIK`).
+**Status per 27 Nov 2026:** kasus di bawah sudah dijalankan terhadap Express dan PostgreSQL sungguhan lewat `npm run uji:api` (`Backend/test/api.test.ts`, 23 uji API, semuanya lulus). Kolom "Di mana" menunjukkan nama uji yang memeriksanya.
 
-Rencana uji untuk M2, dijalankan terhadap Express dan PostgreSQL sungguhan:
+| # | Kasus | Masukan | Hasil yang diharapkan | Status | Di mana |
+|---|---|---|---|---|---|
+| T-A1 | Permintaan ulang yang sudah tersimpan (langkah 0) | `idPermintaan` yang sudah ada | `200` dengan pesanan yang sama | lulus | "T-A1 replay" |
+| T-A2 | Dua permintaan identik bersamaan | `idPermintaan` sama, dikirim serentak | satu baris; satu `201` dan satu `200` | lulus | "T-A2 dua permintaan" |
+| T-A3 | `RETURNING` kosong pada `ON CONFLICT` | sisi yang kalah | server membaca pemenang dan membalas `200` | lulus (tidak langsung) | "T-A2" (sisi kalah dibalas 200) |
+| T-A4 | Status diubah ke nilai yang sama | `diproses` untuk pesanan `diproses` | `200` tanpa perubahan | lulus | "status: transisi sah, idempoten" |
+| T-A5 | Transisi tidak sah | `diproses` → `masuk` | `409 KONFLIK` | lulus | "status: transisi sah, idempoten" |
+| T-A6 | Batal saat sudah dibayar | `batal` untuk pesanan `dibayar` | `409` dengan pesan "Pesanan sudah dibayar…" | lulus | "T-A6 batal saat sudah dibayar" |
+| T-A7 | Balapan batal vs bayar | dua permintaan serentak | tidak pernah `batal` dan `dibayar` bersamaan | lulus | "T-A7 balapan" |
+| T-A8 | Pembayaran dikirim ulang | `dibayar` dua kali | `200`, `dibayarPada` tidak berubah | lulus | "T-A8 pembayaran idempoten" |
+| T-A9 | Pemetaan `23514` ke HTTP | constraint CHECK dilanggar | `409 KONFLIK`, bukan `500` | **hanya uji unit** | "CHECK violation 23514 dipetakan" (unit). Belum ada uji end-to-end |
+| T-A10 | `menuId` tidak dikenal | `lauk-05` di body | `400 MASUKAN_TIDAK_SAH`, `rincian` menunjuk `items.N.menuId` | lulus | "T-A10" |
+| T-A11 | Menu habis | `S01` (habis di seed) | `400 MENU_HABIS` dengan `rincian` berisi `menuId` | lulus | "T-A11" |
+| T-A12 | Harga berubah | `hargaDiharapkan` 9000 untuk `L05` (9500) | `409 HARGA_BERUBAH`, pesanan tidak tersimpan | lulus | "T-A12" |
 
-| # | Kasus | Masukan | Hasil yang diharapkan |
-|---|---|---|---|
-| T-A1 | Permintaan ulang yang sudah tersimpan (langkah 0) | `idPermintaan` yang sudah ada, isi berbeda | `200` dengan pesanan lama; tidak ada baris baru; isi permintaan tidak divalidasi ulang |
-| T-A2 | Dua permintaan identik **bersamaan** (`Promise.all`, dua koneksi pool) | `idPermintaan` sama, dikirim serentak | satu baris di `pesanan`; keduanya `200` atau satu `201` dan satu `200`; tanpa galat |
-| T-A3 | `RETURNING` kosong pada `ON CONFLICT` | sama dengan T-A2, dari sisi yang kalah | server membaca pemenang dan membalas `200` |
-| T-A4 | Status diubah ke nilai yang sama | `status = masuk` untuk pesanan `masuk` | `200` tanpa perubahan |
-| T-A5 | Transisi tidak sah | `selesai` → `diproses` | `409 KONFLIK` dengan pesan transisi |
-| T-A6 | Batal saat sudah dibayar | `status = batal` untuk pesanan `dibayar` | `409 KONFLIK` dengan pesan "Pesanan sudah dibayar…" (tanpa galat database) |
-| T-A7 | Balapan batal vs bayar | dua permintaan bersamaan: satu `batal`, satu `dibayar` | salah satu saja berhasil; pesanan tidak pernah `batal` dan `dibayar` bersamaan |
-| T-A8 | Pembayaran dengan nilai lama yang salah | `pembayaranLama` tidak cocok | `200` bila sudah berada di nilai yang diminta, `409` bila tidak |
-| T-A9 | Pemetaan `23514` | `UPDATE` yang melanggar CHECK | `409 KONFLIK`, bukan `500` |
-| T-A10 | `menuId` tidak dikenal | `menuId` acak di body | `400 MASUKAN_TIDAK_SAH` dengan `rincian` menunjuk `items.N.menuId` |
-| T-A11 | Menu habis | `tersedia = false` | `400 MENU_HABIS` dengan `rincian` berisi `menuId` |
-| T-A12 | Harga berubah | `hargaDiharapkan` berbeda dengan `harga` | `409 HARGA_BERUBAH` dengan harga terkini; pesanan tidak tersimpan |
+Hasil tiap kasus juga dicatat di Google Sheets bersama sesuai Project Plan bagian F. Catatan: uji ini berjalan di container PostgreSQL 16 yang dibuat untuk setiap run, bukan di database pengembangan atau produksi.
 
-Hasil tiap kasus dicatat di Google Sheets bersama (skenario, hasil yang diharapkan, hasil aktual, status, bukti) sesuai Project Plan bagian F.
