@@ -52,7 +52,7 @@ END $$;
 DO $$
 DECLARE menu_tersedia boolean;
 BEGIN
-  INSERT INTO menu (id, nama, kategori, harga, foto) VALUES ('uji-1', 'Uji Menu', 'sayur', 0, 'u.jpg')
+  INSERT INTO menu (id, nama, kategori, harga, foto) VALUES ('S90', 'Uji Menu', 'sayur', 0, 'u.jpg')
   RETURNING tersedia INTO menu_tersedia;
   IF NOT menu_tersedia THEN RAISE EXCEPTION 'FAIL: menu baru tidak tersedia secara default'; END IF;
   RAISE NOTICE 'PASS: menu baru tersedia secara default, harga 0 diterima';
@@ -60,7 +60,7 @@ END $$;
 
 -- Riwayat rekomendasi yang sah: berhasil dan gagal.
 INSERT INTO riwayat_rekomendasi (suasana_hati, tingkat_pedas, anggaran, hasil_menu_ids, total_harga, alasan, sumber_model)
-VALUES ('sedang', 1, 15000, '{lauk-02,sayur-07}', 7000, 'Uji', 'fine-tune');
+VALUES ('sedang', 1, 15000, '{L02,S07}', 7000, 'Uji', 'fine-tune');
 INSERT INTO riwayat_rekomendasi (suasana_hati, tingkat_pedas, anggaran, hasil_menu_ids, sumber_model, kode_alasan, latensi_ms)
 VALUES ('sedih', 0, 2000, '{}', 'gagal', 'ANGGARAN_TERLALU_RENDAH', 8001);
 DO $$ BEGIN RAISE NOTICE 'PASS: riwayat berhasil dan gagal diterima'; END $$;

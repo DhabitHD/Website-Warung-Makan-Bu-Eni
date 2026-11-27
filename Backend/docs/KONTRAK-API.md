@@ -67,7 +67,7 @@ Express mengubah `snake_case` (DB) menjadi `camelCase` (JSON). Frontend hanya me
 
 | JSON | Kolom DB | Catatan |
 |---|---|---|
-| `id` (menu) | `menu.id` | contoh `lauk-05` |
+| `id` (menu) | `menu.id` | contoh `L05` |
 | `keteranganRasa` | `menu.keterangan_rasa` | frontend sekarang memakai `deskripsi`, harus diganti |
 | `porsi` | `menu.porsi` | wajib dalam plan, nullable |
 | `tersedia` | `menu.tersedia` | `false` = habis |
@@ -79,6 +79,11 @@ Express mengubah `snake_case` (DB) menjadi `camelCase` (JSON). Frontend hanya me
 | `dibayarPada` | `pesanan.dibayar_pada` | `null` bila belum dibayar |
 | `menuId` (item) | `item_pesanan.menu_id` | frontend sekarang memakai `itemId`, harus diganti |
 | `subtotal` | `item_pesanan.subtotal` | kolom terhitung `harga × jumlah` |
+
+**ID menu mengikuti `menu_id` di dataset** (disetujui tim, lihat lembar persetujuan K16):
+- Lauk: `L01`–`L11`. Sayur: `S01`–`S07`. Huruf pertama menunjukkan kategori.
+- Format dijaga di database (`CHECK`) dan diuji. Id lama seperti `lauk-05` ditolak.
+- Id menu baru yang dibuat admin mengikuti pola yang sama (`L12`, `S08`, …). Penomoran final dibuat server.
 
 ---
 
@@ -155,7 +160,7 @@ Query opsional: `kategori=lauk|sayur`, `q=kata` (cari nama, tidak peka huruf bes
 {
   "data": [
     {
-      "id": "lauk-05",
+      "id": "L05",
       "nama": "Ayam Goreng",
       "kategori": "lauk",
       "harga": 9500,
@@ -182,8 +187,8 @@ Satu item seperti di atas. `404 TIDAK_DITEMUKAN` bila tidak ada.
   "nomorMeja": "A01",                                   // OPSIONAL. A–Z, a–z, 0–9, '-'; maks 10 karakter
   "catatan": "tanpa sambal",                            // opsional, maks 200 karakter
   "items": [
-    { "menuId": "lauk-05", "jumlah": 1 },
-    { "menuId": "sayur-07", "jumlah": 1 }
+    { "menuId": "L05", "jumlah": 1 },
+    { "menuId": "S07", "jumlah": 1 }
   ]
 }
 ```
@@ -212,8 +217,8 @@ Satu item seperti di atas. `404 TIDAK_DITEMUKAN` bila tidak ada.
     "dibuatPada": "2026-11-20T07:30:00.000Z",
     "dibayarPada": null,
     "items": [
-      { "menuId": "lauk-05", "nama": "Ayam Goreng", "harga": 9500, "jumlah": 1, "subtotal": 9500 },
-      { "menuId": "sayur-07", "nama": "Sop Bening", "harga": 5000, "jumlah": 1, "subtotal": 5000 }
+      { "menuId": "L05", "nama": "Ayam Goreng", "harga": 9500, "jumlah": 1, "subtotal": 9500 },
+      { "menuId": "S07", "nama": "Sop Bening", "harga": 5000, "jumlah": 1, "subtotal": 5000 }
     ]
   }
 }
@@ -233,7 +238,7 @@ Satu item seperti di atas. `404 TIDAK_DITEMUKAN` bila tidak ada.
     "kode": "HARGA_BERUBAH",
     "pesan": "Ada harga yang berubah. Periksa pesanan Anda sebelum mengirim.",
     "rincian": [
-      { "menuId": "lauk-05", "hargaDiharapkan": 9500, "hargaTerkini": 10000 }
+      { "menuId": "L05", "hargaDiharapkan": 9500, "hargaTerkini": 10000 }
     ]
   }
 }
@@ -405,8 +410,8 @@ Basis `dibuatPada` (WIB), status ≠ `batal`, `data_uji = false`. Jam tanpa pesa
   "data": {
     "riwayatId": 42,
     "items": [
-      { "menuId": "lauk-02", "nama": "Tempe Garit", "harga": 2000, "kategori": "lauk" },
-      { "menuId": "sayur-07", "nama": "Sop Bening", "harga": 5000, "kategori": "sayur" }
+      { "menuId": "L02", "nama": "Tempe Garit", "harga": 2000, "kategori": "lauk" },
+      { "menuId": "S07", "nama": "Sop Bening", "harga": 5000, "kategori": "sayur" }
     ],
     "totalHarga": 7000,       // dihitung ulang server dari harga PostgreSQL
     "alasan": "Cocok untuk suasana sedang dengan pedas tingkat 1 dan anggaran Rp15.000.",

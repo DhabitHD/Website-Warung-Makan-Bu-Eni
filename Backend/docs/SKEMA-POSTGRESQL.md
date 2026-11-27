@@ -69,7 +69,8 @@ CREATE SEQUENCE pesanan_nomor_seq START 1;
 
 ```sql
 CREATE TABLE menu (
-  id               TEXT PRIMARY KEY,                       -- contoh: lauk-05 (Ayam Goreng), sayur-07 (Sop Bening)
+  id               TEXT PRIMARY KEY
+                   CHECK (id ~ '^[LS][0-9]{2}$'),          -- sama dengan menu_id di dataset: L01–L11 lauk, S01–S07 sayur
   nama             TEXT NOT NULL
                    CHECK (char_length(nama) BETWEEN 2 AND 60),
   kategori         TEXT NOT NULL
@@ -234,6 +235,7 @@ CREATE INDEX idx_riwayat_dibuat       ON riwayat_rekomendasi (dibuat_pada);
 | 10 | Data uji tidak tercampur rekap usaha | filter `data_uji = false` di semua query rekap |
 | 11 | Dua permintaan identik bersamaan menghasilkan satu pesanan | `INSERT … ON CONFLICT (id_permintaan) DO NOTHING` (bagian 4.1) |
 | 12 | Pembaruan bersamaan tidak saling menimpa | kunci optimistik `WHERE nilai_lama` (bagian 4.2) |
+| 13 | ID menu sama dengan `menu_id` dataset (L01–L11 lauk, S01–S07 sayur) | `CHECK (id ~ '^[LS][0-9]{2}$')` di `menu.id`; uji di `01` (`lauk-05` dan `L5` ditolak) |
 
 ### 4.1 Pembuatan pesanan dalam satu transaksi
 
@@ -452,7 +454,7 @@ Setiap perubahan skema sesudah ini dibuat sebagai berkas migrasi baru, tidak men
 
 ## Lampiran A — Bukti uji skema
 
-Uji dijalankan dengan `Backend/db/test.sh` pada **PostgreSQL 16.16** (image `postgres:16-alpine`), container bersih yang dinyalakan khusus untuk run ini. Tanggal mesin saat run: **23 Nov 2026, 13:21 WIB** (lihat baris `== Tanggal mesin` di A.2). Output di A.2 disalin langsung dari run tersebut, tanpa diedit.
+Uji dijalankan dengan `Backend/db/test.sh` pada **PostgreSQL 16.16** (image `postgres:16-alpine`), container bersih yang dinyalakan khusus untuk run ini. Tanggal mesin saat run: **27 Nov 2026, 09:40 WIB** (lihat baris `== Tanggal mesin` di A.2). Output di A.2 disalin langsung dari run tersebut, tanpa diedit.
 
 ### A.1 Cara mengulang
 
@@ -471,7 +473,7 @@ Berkas terkait di repo:
 | `db/schema.sql` | DDL bagian 3 (sekuens, 5 tabel, 8 indeks) |
 | `db/fixtures/seed.sql` | 6 menu dari katalog, 5 pesanan (termasuk uji dan batal), item, pengeluaran |
 | `db/fixtures/helpers.sql` | fungsi `uji_gagal(stmt, sqlstate, label)` |
-| `db/tests/01_constraint_menolak.sql` | 22 kasus yang harus ditolak constraint |
+| `db/tests/01_constraint_menolak.sql` | 24 kasus yang harus ditolak constraint |
 | `db/tests/02_positif.sql` | 8 kasus data sah dan nilai default |
 | `db/tests/03_sekuens_idempotensi.sql` | 3 kasus sekuens dan `ON CONFLICT` |
 | `db/tests/04_rekap.sql` | 6 kasus rekap dan batas tanggal WIB |
@@ -483,7 +485,7 @@ Berkas terkait di repo:
 == DDL di dokumen dan schema.sql sama
 == Menyalakan PostgreSQL (postgres:16-alpine)
 == Versi: PostgreSQL 16.16 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
-== Tanggal mesin: 2026-11-23 13:21:59 WIB
+== Tanggal mesin: 2026-11-27 09:40:32 WIB
 == Skema
 == Data contoh
 == Pembantu
@@ -502,14 +504,16 @@ psql:/db/tests/01_constraint_menolak.sql:42: NOTICE:  PASS: kategori selain lauk
 psql:/db/tests/01_constraint_menolak.sql:45: NOTICE:  PASS: harga menu negatif
 psql:/db/tests/01_constraint_menolak.sql:48: NOTICE:  PASS: harga menu di atas 10 juta
 psql:/db/tests/01_constraint_menolak.sql:51: NOTICE:  PASS: nama menu kurang dari 2 karakter
-psql:/db/tests/01_constraint_menolak.sql:55: NOTICE:  PASS: pengeluaran nominal nol
-psql:/db/tests/01_constraint_menolak.sql:58: NOTICE:  PASS: pengeluaran nominal negatif
-psql:/db/tests/01_constraint_menolak.sql:61: NOTICE:  PASS: pengeluaran di atas Rp100 juta
-psql:/db/tests/01_constraint_menolak.sql:64: NOTICE:  PASS: pengeluaran tanpa tanggal
-psql:/db/tests/01_constraint_menolak.sql:68: NOTICE:  PASS: rekomendasi gagal tetapi punya hasil
-psql:/db/tests/01_constraint_menolak.sql:71: NOTICE:  PASS: rekomendasi berhasil tanpa hasil
-psql:/db/tests/01_constraint_menolak.sql:74: NOTICE:  PASS: tingkat pedas di luar 0-2
-psql:/db/tests/01_constraint_menolak.sql:77: NOTICE:  PASS: anggaran nol
+psql:/db/tests/01_constraint_menolak.sql:55: NOTICE:  PASS: id format lama lauk-05 ditolak
+psql:/db/tests/01_constraint_menolak.sql:58: NOTICE:  PASS: id L5 tanpa dua digit ditolak
+psql:/db/tests/01_constraint_menolak.sql:62: NOTICE:  PASS: pengeluaran nominal nol
+psql:/db/tests/01_constraint_menolak.sql:65: NOTICE:  PASS: pengeluaran nominal negatif
+psql:/db/tests/01_constraint_menolak.sql:68: NOTICE:  PASS: pengeluaran di atas Rp100 juta
+psql:/db/tests/01_constraint_menolak.sql:71: NOTICE:  PASS: pengeluaran tanpa tanggal
+psql:/db/tests/01_constraint_menolak.sql:75: NOTICE:  PASS: rekomendasi gagal tetapi punya hasil
+psql:/db/tests/01_constraint_menolak.sql:78: NOTICE:  PASS: rekomendasi berhasil tanpa hasil
+psql:/db/tests/01_constraint_menolak.sql:81: NOTICE:  PASS: tingkat pedas di luar 0-2
+psql:/db/tests/01_constraint_menolak.sql:84: NOTICE:  PASS: anggaran nol
 == Tes: 02_positif.sql
 psql:/db/tests/02_positif.sql:14: NOTICE:  PASS: data contoh termuat (6 menu, 5 pesanan)
 psql:/db/tests/02_positif.sql:27: NOTICE:  PASS: subtotal item sama dengan total pesanan (14500)
@@ -547,7 +551,7 @@ Negatif kontrol: constraint `pesanan_batal_tidak_dibayar` sengaja dilepas dari s
 
 | Klaim | Bukti (berkas dan jumlah kasus) |
 |---|---|
-| Constraint menolak 22 jenis data salah (status, pembayaran, nomor meja, jumlah, harga, pengeluaran, rekomendasi, FK, duplikat) | `01_constraint_menolak.sql`: 22 PASS dengan SQLSTATE yang tepat (23514, 23505, 23503, 23502) |
+| Constraint menolak 24 jenis data salah (status, pembayaran, nomor meja, ID menu, jumlah, harga, pengeluaran, rekomendasi, FK, duplikat) | `01_constraint_menolak.sql`: 24 PASS dengan SQLSTATE yang tepat (23514, 23505, 23503, 23502) |
 | Data sah diterima, default bekerja, subtotal = total | `02_positif.sql`: 8 PASS |
 | Replay tidak menaikkan nomor; `ON CONFLICT` menghasilkan satu pesanan; yang kalah memakan satu nomor | `03_sekuens_idempotensi.sql`: 3 PASS. Uji berurutan, bukan balapan sungguhan |
 | Rekap Desember = pemasukan 22.000, pengeluaran 5.000, saldo 17.000; menu terlaris cocok dengan pemasukan | `04_rekap.sql`: 6 PASS |

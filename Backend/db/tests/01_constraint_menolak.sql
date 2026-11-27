@@ -29,26 +29,33 @@ SELECT uji_gagal($s$INSERT INTO pesanan (id_permintaan, nama_pelanggan, nomor_me
 
 -- item_pesanan
 SELECT uji_gagal($s$INSERT INTO item_pesanan (pesanan_id, menu_id, nama, harga, jumlah)
-  SELECT id, 'lauk-05', 'Ayam Goreng', 9500, 0 FROM pesanan LIMIT 1$s$, '23514', 'jumlah item nol');
+  SELECT id, 'L05', 'Ayam Goreng', 9500, 0 FROM pesanan LIMIT 1$s$, '23514', 'jumlah item nol');
 
 SELECT uji_gagal($s$INSERT INTO item_pesanan (pesanan_id, menu_id, nama, harga, jumlah)
-  SELECT id, 'lauk-05', 'Ayam Goreng', 9500, 51 FROM pesanan LIMIT 1$s$, '23514', 'jumlah item di atas 50');
+  SELECT id, 'L05', 'Ayam Goreng', 9500, 51 FROM pesanan LIMIT 1$s$, '23514', 'jumlah item di atas 50');
 
 SELECT uji_gagal($s$INSERT INTO item_pesanan (pesanan_id, menu_id, nama, harga, jumlah)
-  VALUES ('BE-9999', 'lauk-05', 'Ayam Goreng', 9500, 1)$s$, '23503', 'item untuk pesanan yang tidak ada');
+  VALUES ('BE-9999', 'L05', 'Ayam Goreng', 9500, 1)$s$, '23503', 'item untuk pesanan yang tidak ada');
 
 -- menu
 SELECT uji_gagal($s$INSERT INTO menu (id, nama, kategori, harga, foto)
-  VALUES ('x-1', 'Nasi', 'nasi', 1000, 'a.jpg')$s$, '23514', 'kategori selain lauk/sayur');
+  VALUES ('L90', 'Nasi', 'nasi', 1000, 'a.jpg')$s$, '23514', 'kategori selain lauk/sayur');
 
 SELECT uji_gagal($s$INSERT INTO menu (id, nama, kategori, harga, foto)
-  VALUES ('x-2', 'Nasi', 'lauk', -5, 'a.jpg')$s$, '23514', 'harga menu negatif');
+  VALUES ('L91', 'Nasi', 'lauk', -5, 'a.jpg')$s$, '23514', 'harga menu negatif');
 
 SELECT uji_gagal($s$INSERT INTO menu (id, nama, kategori, harga, foto)
-  VALUES ('x-3', 'Nasi', 'lauk', 10000001, 'a.jpg')$s$, '23514', 'harga menu di atas 10 juta');
+  VALUES ('L92', 'Nasi', 'lauk', 10000001, 'a.jpg')$s$, '23514', 'harga menu di atas 10 juta');
 
 SELECT uji_gagal($s$INSERT INTO menu (id, nama, kategori, harga, foto)
-  VALUES ('x-4', 'N', 'lauk', 1000, 'a.jpg')$s$, '23514', 'nama menu kurang dari 2 karakter');
+  VALUES ('L93', 'N', 'lauk', 1000, 'a.jpg')$s$, '23514', 'nama menu kurang dari 2 karakter');
+
+-- id menu harus sesuai menu_id dataset (L01–L11, S01–S07)
+SELECT uji_gagal($s$INSERT INTO menu (id, nama, kategori, harga, foto)
+  VALUES ('lauk-05', 'Ayam Goreng', 'lauk', 9500, 'a.jpg')$s$, '23514', 'id format lama lauk-05 ditolak');
+
+SELECT uji_gagal($s$INSERT INTO menu (id, nama, kategori, harga, foto)
+  VALUES ('L5', 'Ayam Goreng', 'lauk', 9500, 'a.jpg')$s$, '23514', 'id L5 tanpa dua digit ditolak');
 
 -- pengeluaran
 SELECT uji_gagal($s$INSERT INTO pengeluaran (keterangan, nominal, tanggal)
@@ -65,15 +72,15 @@ SELECT uji_gagal($s$INSERT INTO pengeluaran (keterangan, nominal, tanggal)
 
 -- riwayat_rekomendasi
 SELECT uji_gagal($s$INSERT INTO riwayat_rekomendasi (suasana_hati, tingkat_pedas, anggaran, hasil_menu_ids, total_harga, sumber_model, kode_alasan)
-  VALUES ('sedang', 1, 15000, '{lauk-05}', 9500, 'gagal', 'AI_TIDAK_TERSEDIA')$s$, '23514', 'rekomendasi gagal tetapi punya hasil');
+  VALUES ('sedang', 1, 15000, '{L05}', 9500, 'gagal', 'AI_TIDAK_TERSEDIA')$s$, '23514', 'rekomendasi gagal tetapi punya hasil');
 
 SELECT uji_gagal($s$INSERT INTO riwayat_rekomendasi (suasana_hati, tingkat_pedas, anggaran, hasil_menu_ids, total_harga, sumber_model)
   VALUES ('sedang', 1, 15000, '{}', NULL, 'fine-tune')$s$, '23514', 'rekomendasi berhasil tanpa hasil');
 
 SELECT uji_gagal($s$INSERT INTO riwayat_rekomendasi (suasana_hati, tingkat_pedas, anggaran, hasil_menu_ids, sumber_model)
-  VALUES ('sedang', 3, 15000, '{lauk-05}', 'fine-tune')$s$, '23514', 'tingkat pedas di luar 0-2');
+  VALUES ('sedang', 3, 15000, '{L05}', 'fine-tune')$s$, '23514', 'tingkat pedas di luar 0-2');
 
 SELECT uji_gagal($s$INSERT INTO riwayat_rekomendasi (suasana_hati, tingkat_pedas, anggaran, hasil_menu_ids, total_harga, sumber_model)
-  VALUES ('sedang', 1, 0, '{lauk-05}', 9500, 'fine-tune')$s$, '23514', 'anggaran nol');
+  VALUES ('sedang', 1, 0, '{L05}', 9500, 'fine-tune')$s$, '23514', 'anggaran nol');
 
 ROLLBACK;

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useMenuStore } from '@/features/menu/store/menu-store'
+import { awalanIdMenu, buatIdMenu } from '@/features/menu/lib/id-menu'
 import type { KategoriMenu } from '@/types/menu'
 
 /** Validasi form menu — harga disimpan sebagai angka Rupiah bulat. */
@@ -55,6 +56,7 @@ export function AdminMenuFormPage() {
   const navigate = useNavigate()
   const items = useMenuStore((state) => state.items)
   const simpan = useMenuStore((state) => state.simpan)
+  const hapus = useMenuStore((state) => state.hapus)
   const menuLama = modeEdit ? items.find((item) => item.id === id) : undefined
 
   const {
@@ -100,8 +102,17 @@ export function AdminMenuFormPage() {
   }
 
   const onSubmit = (values: MenuParsedValues) => {
+    const idBaru =
+      menuLama && menuLama.id.startsWith(awalanIdMenu(values.kategori))
+        ? menuLama.id
+        : buatIdMenu(values.kategori, items)
+
+    if (menuLama && idBaru !== menuLama.id) {
+      hapus(menuLama.id)
+    }
+
     simpan({
-      id: menuLama?.id ?? `menu-${Date.now().toString(36)}`,
+      id: idBaru,
       nama: values.nama,
       kategori: values.kategori,
       harga: values.harga,
