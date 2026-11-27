@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
 import { Loader2, Send } from 'lucide-react'
@@ -8,11 +9,11 @@ import { useCartStore } from '@/features/cart/store/cart-store'
 import { cn } from '@/lib/utils'
 import type { CartItem } from '@/types/cart'
 import { checkoutSchema, type CheckoutFormValues } from '../schemas/checkout'
+import { pesanGalatValidasi } from '../schemas/order'
 import { kirimPesanan } from '../services/order.service'
 
 interface CheckoutFormProps {
   items: CartItem[]
-  totalHarga: number
   nomorMejaAwal: string
 }
 
@@ -30,9 +31,11 @@ function PesanError({ id, pesan }: { id: string; pesan?: string }) {
 }
 
 /** Form data pemesan + pengiriman pesanan (mock sampai API Tahap 4 siap). */
-export function CheckoutForm({ items, totalHarga, nomorMejaAwal }: CheckoutFormProps) {
+export function CheckoutForm({ items, nomorMejaAwal }: CheckoutFormProps) {
   const navigate = useNavigate()
   const kosongkan = useCartStore((state) => state.kosongkan)
+  // Satu id untuk seluruh percobaan checkout; dipakai server untuk mencegah pesanan ganda.
+  const idPermintaanRef = useRef('')
 
   const {
     register,
@@ -44,14 +47,19 @@ export function CheckoutForm({ items, totalHarga, nomorMejaAwal }: CheckoutFormP
   })
 
   const mutasi = useMutation({
-    mutationFn: (values: CheckoutFormValues) =>
-      kirimPesanan({
+    mutationFn: (values: CheckoutFormValues) => {
+      if (!idPermintaanRef.current) {
+        idPermintaanRef.current = crypto.randomUUID()
+      }
+
+      return kirimPesanan({
+        idPermintaan: idPermintaanRef.current,
         nama: values.nama,
         nomorMeja: values.nomorMeja,
         catatan: values.catatan || undefined,
-        items,
-        totalHarga,
-      }),
+        items: items.map((item) => ({ menuId: item.itemId, jumlah: item.jumlah })),
+      })
+    },
     onSuccess: (pesanan) => {
       kosongkan()
       navigate('/order-success', { replace: true, state: { pesanan } })
@@ -152,9 +160,7 @@ export function CheckoutForm({ items, totalHarga, nomorMejaAwal }: CheckoutFormP
           role="alert"
           className="mt-5 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
         >
-          {mutasi.error instanceof Error
-            ? mutasi.error.message
-            : 'Pesanan gagal dikirim. Coba lagi.'}
+          {pesanGalatValidasi(mutasi.error)}
         </div>
       )}
 

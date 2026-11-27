@@ -3,14 +3,13 @@ import { Link } from 'react-router-dom'
 import { Container } from '@/components/layout/Container'
 import { PageShell } from '@/components/layout/PageShell'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { hitungTotalHarga, useCartStore } from '@/features/cart/store/cart-store'
+import { useCartStore } from '@/features/cart/store/cart-store'
 import { CheckoutForm } from '@/features/checkout/components/CheckoutForm'
 import { CheckoutSummary } from '@/features/checkout/components/CheckoutSummary'
 import { useNomorMeja } from '@/features/checkout/hooks/useNomorMeja'
 
 export function CheckoutPage() {
   const items = useCartStore((state) => state.items)
-  const totalHarga = hitungTotalHarga(items)
   const { nomorMeja } = useNomorMeja()
 
   const menuUrl = nomorMeja ? `/menu?table=${encodeURIComponent(nomorMeja)}` : '/menu'
@@ -56,7 +55,7 @@ export function CheckoutPage() {
           </div>
         ) : (
           <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
-            <CheckoutForm items={items} totalHarga={totalHarga} nomorMejaAwal={nomorMeja} />
+            <CheckoutForm items={items} nomorMejaAwal={nomorMeja} />
 
             <aside className="lg:sticky lg:top-24 lg:self-start">
               <CheckoutSummary items={items} nomorMeja={nomorMeja} />
