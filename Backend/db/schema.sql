@@ -4,7 +4,8 @@
 CREATE SEQUENCE pesanan_nomor_seq START 1;
 
 CREATE TABLE menu (
-  id               TEXT PRIMARY KEY,                       -- contoh: lauk-05 (Ayam Goreng), sayur-07 (Sop Bening)
+  id               TEXT PRIMARY KEY
+                   CHECK (id ~ '^[LS][0-9]{2}$'),          -- sama dengan menu_id di dataset: L01–L11 lauk, S01–S07 sayur
   nama             TEXT NOT NULL
                    CHECK (char_length(nama) BETWEEN 2 AND 60),
   kategori         TEXT NOT NULL
